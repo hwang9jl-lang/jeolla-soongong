@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>기록·랭킹 · 가보자 서울대!</title>
+<link rel="manifest" href="manifest-admin.json">
+<meta name="theme-color" content="#12141C">
+<link rel="apple-touch-icon" href="icon-admin-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="순공 관리">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  :root { --bg: #161822; --card: #1E212D; --card2: #1A1C26; --line: #2E3242; --blue: #2E466A; --blue-t: #7FB0FF; --text: #E4E4EC; --text-dim: #8A8A9A; --text-mute: #5A5A6A; --green: #2E5A48; --green-t: #6FD6A8; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 16px; }
+  .wrap { max-width: 520px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .top h1 { font-size: 18px; font-weight: 700; }
+  .top .r { display: flex; gap: 8px; }
+  .excel-btn { font-size: 12px; color: var(--green-t); background: #16241E; border: 1px solid var(--green); border-radius: 9px; padding: 8px 14px; cursor: pointer; }
+  .back { font-size: 12px; color: var(--blue-t); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; text-decoration: none; display:flex; align-items:center; }
+
+  .search-row { margin-bottom: 10px; }
+  .search-row input { width: 100%; background: var(--card); border: 1px solid var(--line); border-radius: 9px; padding: 10px 13px; font-size: 13px; color: var(--text); outline: none; }
+  .search-row input:focus { border-color: var(--blue); }
+  .sort-row { display: flex; gap: 6px; margin-bottom: 14px; }
+  .sbtn { flex: 1; font-size: 12px; background: var(--card); color: var(--text-dim); border: 1px solid var(--line); border-radius: 8px; padding: 7px; cursor: pointer; }
+  .sbtn.active { background: var(--blue); color: #CFE0FF; border-color: var(--blue); }
+
+  .list-head { display: grid; grid-template-columns: 32px 1fr auto; gap: 8px; padding: 0 12px 8px; font-size: 10px; color: var(--text-mute); }
+  .list-head .r { text-align: right; }
+  #list { display: flex; flex-direction: column; gap: 5px; }
+  .row { display: grid; grid-template-columns: 32px 1fr auto; gap: 8px; align-items: center; padding: 11px 12px; background: var(--card); border-radius: 9px; cursor: pointer; }
+  .row .rk { font-size: 15px; font-weight: 700; color: var(--text-dim); text-align: center; }
+  .row.gold .rk { color: #E0C24A; } .row.silver .rk { color: #B8B8C4; } .row.bronze .rk { color: #D89A6A; }
+  .row .info .nm { font-size: 14px; } .row .info .nm .sub { font-size: 10px; color: var(--text-dim); margin-left: 4px; }
+  .row .stat { text-align: right; } .row .stat .big { font-size: 14px; font-weight: 700; color: #8FE0B8; } .row .stat .sub { font-size: 10px; color: var(--text-dim); }
+  .row:active { opacity: 0.8; }
+
+  .loading { text-align: center; color: var(--text-dim); padding: 40px; }
+  .empty { text-align: center; color: var(--text-mute); padding: 30px; font-size: 13px; }
+
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 200; padding: 20px; }
+  .modal-bg.show { display: flex; }
+  .modal { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 22px; max-width: 360px; width: 100%; max-height: 80vh; overflow-y: auto; }
+  .modal .mhd { display: flex; justify-content: space-between; align-items: start; margin-bottom: 6px; }
+  .modal .who { font-size: 17px; font-weight: 700; } .modal .sub { font-size: 12px; color: var(--text-dim); margin-top: 3px; }
+  .modal .close { font-size: 20px; color: var(--text-dim); cursor: pointer; background: none; border: none; }
+  .modal .sumline { display: flex; gap: 8px; margin: 16px 0; }
+  .modal .sumbox { flex: 1; background: var(--card2); border-radius: 10px; padding: 10px; text-align: center; }
+  .modal .sumbox .l { font-size: 10px; color: var(--text-dim); } .modal .sumbox .v { font-size: 15px; font-weight: 700; margin-top: 3px; }
+  .modal .day-title { font-size: 12px; color: var(--text-dim); margin: 10px 0 8px; }
+  .day-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 11px; background: var(--card2); border-radius: 8px; margin-bottom: 5px; font-size: 13px; }
+  .day-row .d { color: var(--text); } .day-row .t { font-weight: 600; }
+  .day-row.invalid .t { color: #D87A8A; }
+  .day-row .fix { font-size: 11px; color: var(--blue-t); background: #161E2A; border: 1px solid var(--blue); border-radius: 6px; padding: 4px 8px; cursor: pointer; margin-left: 8px; }
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #2A2A3D; color: #fff; font-size: 13px; padding: 12px 20px; border-radius: 10px; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 300; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>기록 · 랭킹</h1>
+    <div class="r">
+      <button class="excel-btn" onclick="exportExcel()">엑셀</button>
+      <a class="back" href="admin.html">← 메뉴</a>
+    </div>
+  </div>
+
+  <div class="search-row"><input id="search" placeholder="이름 검색" oninput="render()"></div>
+  <div class="sort-row">
+    <button class="sbtn active" data-s="total" onclick="setSort('total')">누적순</button>
+    <button class="sbtn" data-s="week" onclick="setSort('week')">이번주</button>
+    <button class="sbtn" data-s="days" onclick="setSort('days')">출석일</button>
+    <button class="sbtn" data-s="invalid" onclick="setSort('invalid')">무효순</button>
+  </div>
+
+  <div class="list-head"><span>순위</span><span>학생</span><span class="r">누적·출석·무효</span></div>
+  <div id="loading" class="loading">불러오는 중...</div>
+  <div id="list"></div>
+</div>
+
+<div class="modal-bg" id="modal"><div class="modal" id="modalBody"></div></div>
+<div id="toast" class="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  let students = [];
+  let allRecords = {};   // dateKey → { sid → rec }
+  let stats = {};        // sid → { total, week, days, invalid, records: [{date, rec}] }
+  let curSort = 'total';
+
+  init();
+  async function init() {
+    db.goOnline();
+    // students는 구독으로, records는 get으로 (records는 양이 많아 1회 로드)
+    const stuList = await new Promise((resolve) => {
+      db.ref('students').on('value', (snap) => {
+        const list = [];
+        snap.forEach(c => { list.push(c.val()); });
+        resolve(list);
+      });
+    });
+    const recSnap = await db.ref('records').get();
+    students = stuList;
+    allRecords = {};
+    recSnap.forEach(dayNode => {
+      const day = {};
+      dayNode.forEach(r => { day[r.key] = r.val(); });
+      allRecords[dayNode.key] = day;
+    });
+    // 같은 데이터로 밀린 기록 정리 (records 다시 안 읽음) + 집계 전에 화면 데이터에도 반영
+    const invalidated = await sweepStaleRecords(recSnap);
+    invalidated.forEach(it => {
+      const d = allRecords[it.date];
+      if (d && d[it.sid]) { d[it.sid].status = 'invalid'; d[it.sid].durationSec = 0; d[it.sid].endAt = Date.now(); }
+    });
+    computeStats();
+    $('loading').style.display = 'none';
+    render();
+  }
+
+  function computeStats() {
+    const today = todayKey();
+    stats = {};
+    students.forEach(s => { stats[s.sid] = { total: s.totalSec||0, week: 0, days: 0, invalid: 0, records: [] }; });
+    Object.keys(allRecords).sort().reverse().forEach(date => {
+      const day = allRecords[date];
+      Object.keys(day).forEach(sid => {
+        if (!stats[sid]) return;
+        const rec = day[sid];
+        stats[sid].records.push({ date, rec });
+        if (rec.status === 'done' && rec.durationSec) {
+          stats[sid].days++;
+          if (isSameWeek(date, today)) stats[sid].week += rec.durationSec;
+        }
+        if (rec.status === 'invalid') stats[sid].invalid++;
+      });
+    });
+  }
+
+  function setSort(s) {
+    curSort = s;
+    document.querySelectorAll('.sbtn').forEach(b => b.classList.toggle('active', b.dataset.s === s));
+    render();
+  }
+
+  function render() {
+    const kw = $('search').value.trim();
+    let arr = students.map(s => ({ s, st: stats[s.sid] || {total:0,week:0,days:0,invalid:0} }));
+    // 정렬
+    arr.sort((a,b) => {
+      if (curSort === 'total') return b.st.total - a.st.total;
+      if (curSort === 'week') return b.st.week - a.st.week;
+      if (curSort === 'days') return b.st.days - a.st.days;
+      if (curSort === 'invalid') return b.st.invalid - a.st.invalid;
+      return 0;
+    });
+
+    const list = $('list');
+    let html = '';
+    let rank = 0;
+    arr.forEach((item) => {
+      rank++;
+      const s = item.s, st = item.st;
+      if (kw && !s.name.includes(kw)) return;
+      let cls = '';
+      if (curSort === 'total' || curSort === 'week') {
+        if (rank === 1) cls = 'gold'; else if (rank === 2) cls = 'silver'; else if (rank === 3) cls = 'bronze';
+      }
+      const mainVal = curSort === 'week' ? st.week : st.total;
+      html += `<div class="row ${cls}" onclick="showDetail('${s.sid}')">
+        <div class="rk">${rank}</div>
+        <div class="info"><div class="nm">${esc(s.name)}<span class="sub">${s.sid} · ${seatLabel(s.seat||'')}</span></div></div>
+        <div class="stat"><div class="big">${fmtDuration(mainVal)}</div><div class="sub">${st.days}일 · 무효 ${st.invalid}</div></div>
+      </div>`;
+    });
+    list.innerHTML = html || '<div class="empty">해당하는 학생이 없습니다.</div>';
+  }
+
+  function showDetail(sid) {
+    const s = students.find(x => x.sid === sid);
+    const st = stats[sid];
+    let dayRows = '';
+    st.records.forEach(({date, rec}) => {
+      const isInv = rec.status === 'invalid';
+      const isOng = rec.status === 'ongoing';
+      let timeStr;
+      if (isOng) timeStr = '진행 중';
+      else if (isInv) timeStr = '무효';
+      else timeStr = fmtDuration(rec.durationSec || 0);
+      const startStr = rec.startAt ? `${p2(new Date(rec.startAt).getHours())}:${p2(new Date(rec.startAt).getMinutes())}` : '';
+      const fixBtn = isInv ? `<button class="fix" onclick="event.stopPropagation();fixInvalid('${date}','${sid}')">인정</button>` : '';
+      dayRows += `<div class="day-row ${isInv?'invalid':''}">
+        <span class="d">${date.slice(5)} <span style="color:#5A5A6A;font-size:11px;">${startStr}</span></span>
+        <span style="display:flex;align-items:center;"><span class="t">${timeStr}</span>${fixBtn}</span>
+      </div>`;
+    });
+    if (!dayRows) dayRows = '<div class="empty" style="padding:16px;">기록이 없습니다.</div>';
+
+    $('modalBody').innerHTML = `
+      <div class="mhd">
+        <div><div class="who">${esc(s.name)}</div><div class="sub">${s.sid} · ${s.cls}반 · ${seatLabel(s.seat||'')}</div></div>
+        <button class="close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="sumline">
+        <div class="sumbox"><div class="l">누적</div><div class="v" style="color:#8FE0B8;">${fmtDuration(st.total)}</div></div>
+        <div class="sumbox"><div class="l">출석일</div><div class="v">${st.days}일</div></div>
+        <div class="sumbox"><div class="l">무효</div><div class="v" style="color:${st.invalid?'#D87A8A':'#E4E4EC'};">${st.invalid}</div></div>
+      </div>
+      <div class="day-title">날짜별 기록</div>
+      ${dayRows}`;
+    $('modal').classList.add('show');
+  }
+  function closeModal() { $('modal').classList.remove('show'); }
+  $('modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
+
+  // 무효 → 인정 처리 (교사가 수동으로)
+  async function fixInvalid(date, sid) {
+    const rec = allRecords[date][sid];
+    if (!rec) return;
+    // 안전장치: 무효(invalid) 상태일 때만 인정 처리 (중복 반영 방지)
+    if (rec.status !== 'invalid') {
+      toast('이미 처리된 기록입니다.');
+      return;
+    }
+    const mins = prompt('이 학생의 그날 순공 시간을 분 단위로 입력하세요.\n(예: 180 = 3시간)', '');
+    if (mins === null) return;
+    const m = parseInt(mins, 10);
+    if (isNaN(m) || m <= 0) { toast('올바른 분 단위 숫자를 입력하세요'); return; }
+    const sec = m * 60;
+    const updates = {};
+    updates['records/' + date + '/' + sid + '/status'] = 'done';
+    updates['records/' + date + '/' + sid + '/durationSec'] = sec;
+    updates['records/' + date + '/' + sid + '/fixedByTeacher'] = true;
+    await db.ref().update(updates);
+    // 누적 반영
+    await db.ref('students/' + sid + '/totalSec').transaction(v => (v||0) + sec);
+    toast('인정 처리했습니다 (' + fmtDuration(sec) + ')');
+    closeModal();
+    await init();
+  }
+
+  function exportExcel() {
+    if (students.length === 0) { toast('학생이 없습니다'); return; }
+    // 상세: 학생별 날짜별 기록 전체
+    const rows = [['이름','학번','소속반','좌석','날짜','시작','종료','순공시간(분)','상태']];
+    students.forEach(s => {
+      const st = stats[s.sid];
+      if (!st.records.length) {
+        rows.push([s.name, s.sid, s.cls+'반', seatLabel(s.seat||''), '', '', '', '', '기록없음']);
+      } else {
+        st.records.slice().reverse().forEach(({date, rec}) => {
+          const start = rec.startAt ? fmtClock(rec.startAt) : '';
+          const end = rec.endAt ? fmtClock(rec.endAt) : '';
+          const min = rec.durationSec ? Math.round(rec.durationSec/60) : '';
+          const stt = rec.status==='done'?'정상':(rec.status==='invalid'?'무효':(rec.status==='ongoing'?'진행중':(rec.status==='paused'?'멈춤':'')));
+          rows.push([s.name, s.sid, s.cls+'반', seatLabel(s.seat||''), date, start, end, min, stt]);
+        });
+      }
+    });
+    const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\r\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = '순공기록_' + todayKey() + '.csv'; a.click();
+    URL.revokeObjectURL(url);
+    toast('엑셀 파일을 저장했습니다');
+  }
+
+  function fmtClock(ts) { const d = new Date(ts); return p2(d.getHours())+':'+p2(d.getMinutes()); }
+  function esc(s) { return String(s).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])); }
+  function p2(n) { return String(n).padStart(2, '0'); }
+  let toastTimer;
+  function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2000); }
+</script>
+</body>
+</html>

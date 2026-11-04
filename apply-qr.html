@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>신청 QR 포스터 · 가보자 서울대!</title>
+<link rel="manifest" href="manifest-admin.json">
+<meta name="theme-color" content="#12141C">
+<link rel="apple-touch-icon" href="icon-admin-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="순공 관리">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root { --bg:#161822; --card:#1E212D; --line:#2E3242; --blue:#2E466A; --blue-t:#7FB0FF; --text:#E4E4EC; --text-dim:#8A8A9A; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; background: var(--bg); color: var(--text); padding: 16px; }
+  .wrap { max-width: 620px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .top h1 { font-size: 18px; font-weight: 700; }
+  .top-r { display: flex; gap: 8px; }
+  .back { font-size: 12px; color: var(--blue-t); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; text-decoration: none; display:flex; align-items:center; }
+  .print-btn { font-size: 12px; color: #6FD6A8; background: #16241E; border: 1px solid #2E5A48; border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+  .intro { font-size: 13px; color: var(--text-dim); line-height: 1.6; margin-bottom: 14px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+
+  /* 실제 인쇄되는 포스터 */
+  .poster { background: #fff; color: #111; border-radius: 12px; padding: 44px 32px; text-align: center; }
+  .poster .brand { font-size: 34px; font-weight: 800; color: #6B2FB3; letter-spacing: -1px; }
+  .poster .sub { font-size: 16px; color: #8A5BC7; letter-spacing: 6px; margin-top: 8px; margin-bottom: 8px; }
+  .poster .divider { width: 60px; height: 4px; background: #6B2FB3; margin: 20px auto; border-radius: 2px; }
+  .poster .headline { font-size: 26px; font-weight: 800; color: #111; margin: 18px 0 6px; }
+  .poster .desc { font-size: 15px; color: #555; line-height: 1.6; margin-bottom: 26px; }
+  .poster .qrbox { display: inline-block; padding: 18px; border: 3px solid #111; border-radius: 16px; }
+  .poster .qrbox img { width: 300px; height: 300px; display: block; }
+  .poster .scan { font-size: 20px; font-weight: 700; color: #111; margin-top: 22px; }
+  .poster .steps { font-size: 14px; color: #666; margin-top: 18px; line-height: 1.9; }
+  .poster .url { font-size: 12px; color: #999; margin-top: 20px; word-break: break-all; }
+  .poster .foot { font-size: 13px; color: #6B2FB3; font-weight: 600; margin-top: 24px; }
+
+  @media print {
+    body { background: #fff; padding: 0; }
+    .top, .intro, .back, .print-btn { display: none; }
+    .poster { border-radius: 0; padding: 40px; }
+    @page { margin: 1.5cm; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>신청 QR 포스터</h1>
+    <div class="top-r">
+      <button class="print-btn" onclick="window.print()">🖨 인쇄</button>
+      <a class="back" href="admin.html">← 메뉴</a>
+    </div>
+  </div>
+
+  <div class="intro">
+    이 포스터를 인쇄해서 교실이나 게시판에 붙이면 학생들이 QR을 찍어 순공을 신청할 수 있습니다.<br>
+    <b>인쇄</b> 버튼을 누르면 아래 포스터가 A4 한 장으로 나옵니다. (신청 받기는 관리 메뉴에서 켜고 끄세요.)
+  </div>
+
+  <div class="poster">
+    <div class="brand">가보자 서울대!</div>
+    <div class="sub">순공 프로그램</div>
+    <div class="divider"></div>
+    <div class="headline">순공 참여 신청</div>
+    <div class="desc">아래 QR을 휴대폰으로 찍고<br>학번과 이름을 입력하세요.</div>
+    <div class="qrbox"><img id="qr" alt="신청 QR"></div>
+    <div class="scan">📱 QR을 스캔하세요</div>
+    <div class="steps">
+      ① QR 스캔 → ② 학번·이름 입력 → ③ 신청 완료<br>
+      신청 순서가 우선권이 됩니다. 서두르세요!
+    </div>
+    <div class="url" id="url"></div>
+    <div class="foot">전라고등학교 2학년 순공 프로그램</div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+<script>
+  const applyUrl = location.origin + location.pathname.replace(/[^/]*$/, '') + 'apply.html';
+  const qr = new QRious({ value: applyUrl, size: 600, level: 'M' });
+  document.getElementById('qr').src = qr.toDataURL();
+  document.getElementById('url').textContent = applyUrl;
+</script>
+</body>
+</html>

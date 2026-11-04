@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>랭킹 · 가보자 서울대!</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0A0A14">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="가보자 서울대!">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  :root {
+    --bg: #0A0A14; --card: #12121F; --card2: #1A1C26; --line: #2A2A45;
+    --purple: #B14BFF; --purple-d: #12082E; --cyan: #00E5FF; --pink: #FF3D8B;
+    --text: #F0F0F5; --text-dim: #8A8A9A; --text-mute: #5A5A6A;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    background: var(--bg); color: var(--text); min-height: 100vh; padding: 20px;
+    display: flex; justify-content: center;
+  }
+  .wrap { width: 100%; max-width: 400px; }
+  .card { background: #0A0A14; }
+
+  .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .head .who .lbl { font-size: 11px; color: var(--cyan); letter-spacing: 3px; }
+  .head .who .val { font-size: 16px; font-weight: 700; }
+  .head .avatar { width: 38px; height: 38px; border-radius: 10px; background: #1A0F3D; border: 1.5px solid var(--purple); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #D89BFF; box-shadow: 0 0 12px rgba(177,75,255,0.5); }
+
+  .rank-card {
+    background: var(--purple-d); border: 1.5px solid var(--purple); border-radius: 18px;
+    padding: 24px 16px; text-align: center; margin-bottom: 14px;
+    box-shadow: 0 0 24px rgba(177,75,255,0.4), inset 0 0 30px rgba(177,75,255,0.1);
+  }
+  .rank-card .l { font-size: 12px; color: #D89BFF; letter-spacing: 4px; margin-bottom: 10px; }
+  .rank-card .big { font-size: 60px; font-weight: 800; line-height: 1; color: #fff; text-shadow: 0 0 8px #E4B0FF, 0 0 20px var(--purple); }
+  .rank-card .big small { font-size: 24px; color: #D89BFF; }
+  .rank-card .sub { font-size: 12px; color: #8A6FC7; margin-top: 12px; }
+
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+  .mini { border-radius: 14px; padding: 15px; }
+  .mini .l { font-size: 11px; letter-spacing: 1px; margin-bottom: 8px; }
+  .mini .v { font-size: 18px; font-weight: 700; color: #fff; }
+  .mini.today { background: #04141A; border: 1.5px solid var(--cyan); box-shadow: 0 0 14px rgba(0,229,255,0.3); }
+  .mini.today .l { color: var(--cyan); }
+  .mini.total { background: #1A0A16; border: 1.5px solid var(--pink); box-shadow: 0 0 14px rgba(255,61,139,0.3); }
+  .mini.total .l { color: var(--pink); }
+
+  .tabs { display: flex; gap: 6px; margin-bottom: 14px; background: #12121F; padding: 4px; border-radius: 12px; border: 1px solid var(--line); }
+  .tab { flex: 1; text-align: center; font-size: 13px; padding: 8px; border-radius: 9px; cursor: pointer; color: var(--text-dim); }
+  .tab.active { background: var(--purple); color: #fff; font-weight: 600; box-shadow: 0 0 12px rgba(177,75,255,0.5); }
+
+  .list { display: flex; flex-direction: column; gap: 8px; }
+  .rrow {
+    display: flex; align-items: center; gap: 11px; padding: 11px 13px;
+    background: #12121F; border: 1px solid var(--line); border-radius: 13px;
+  }
+  .rrow .medal { font-size: 19px; width: 24px; text-align: center; }
+  .rrow .rk { font-size: 15px; font-weight: 700; color: var(--text-dim); width: 24px; text-align: center; }
+  .rrow .av { width: 30px; height: 30px; border-radius: 9px; background: #22222E; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #9A9AB0; flex-shrink: 0; }
+  .rrow .nm { flex: 1; font-size: 14px; color: #C8C8D8; min-width: 0; }
+  .rrow .tm { font-size: 14px; font-weight: 700; color: #9A9AB0; }
+  .rrow.gold { background: #1A1405; border-color: #FFD447; box-shadow: 0 0 14px rgba(255,212,71,0.3); }
+  .rrow.gold .av { background: #2E2405; color: #FFD447; } .rrow.gold .nm { color: #F0F0F5; } .rrow.gold .tm { color: #FFD447; }
+  .rrow.silver { background: #14141A; border-color: #C9D2DE; }
+  .rrow.silver .av { background: #22252B; color: #C9D2DE; } .rrow.silver .tm { color: #C9D2DE; }
+  .rrow.bronze { background: #1A0F08; border-color: #E8955C; }
+  .rrow.bronze .av { background: #2E1A0F; color: #E8955C; } .rrow.bronze .tm { color: #E8955C; }
+  .rrow.me { background: var(--purple-d); border: 1.5px solid var(--purple); box-shadow: 0 0 16px rgba(177,75,255,0.35); }
+  .rrow.me .nm { color: #D89BFF; font-weight: 600; } .rrow.me .tm { color: #D89BFF; } .rrow.me .av { background: #3A3270; color: #D89BFF; }
+
+  .back { display: block; text-align: center; margin-top: 20px; font-size: 13px; color: var(--text-dim); text-decoration: none; padding: 12px; }
+  .loading { text-align: center; padding: 40px; color: var(--text-dim); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="loading" class="loading">랭킹 불러오는 중...</div>
+  <div class="card" id="content" style="display:none;">
+    <div class="head">
+      <div class="who">
+        <div class="lbl">▸ PLAYER</div>
+        <div class="val" id="myName">—</div>
+      </div>
+      <div class="avatar" id="myAvatar">—</div>
+    </div>
+
+    <div class="rank-card">
+      <div class="l">누적 순위</div>
+      <div class="big" id="myRank">—</div>
+      <div class="sub" id="myRankSub">전체 — 명 중</div>
+    </div>
+
+    <div class="two">
+      <div class="mini today"><div class="l">오늘 순공</div><div class="v" id="myToday">—</div></div>
+      <div class="mini total"><div class="l">누적 총합</div><div class="v" id="myTotal">—</div></div>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" data-t="week" onclick="setTab('week')">이번 주</div>
+      <div class="tab" data-t="total" onclick="setTab('total')">누적</div>
+    </div>
+
+    <div class="list" id="rankList"></div>
+
+    <a class="back" href="javascript:history.back()">← 돌아가기</a>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const params = new URLSearchParams(location.search);
+  const mySid = params.get('sid');
+
+  let students = [];    // 전체 학생
+  let weekTotals = {};  // sid → 이번주 초
+  let curTab = 'week';
+
+  init();
+  async function init() {
+    db.goOnline();
+    // 학생 전체는 구독으로 확실히, 이번주 기록은 get으로
+    const stuList = await new Promise((resolve) => {
+      db.ref('students').on('value', (snap) => {
+        const list = [];
+        snap.forEach(c => { list.push(c.val()); });
+        resolve(list);
+      });
+    });
+    const recSnap = await db.ref('records').get();
+
+    students = stuList;
+
+    // 이번주 순공 시간 합산
+    const today = todayKey();
+    const todaySec = {};
+    weekTotals = {};
+    recSnap.forEach(dayNode => {
+      const dateKey = dayNode.key;
+      const inWeek = isSameWeek(dateKey, today);
+      dayNode.forEach(rec => {
+        const r = rec.val();
+        if (r.status === 'done' && r.durationSec) {
+          if (inWeek) weekTotals[r.sid] = (weekTotals[r.sid] || 0) + r.durationSec;
+          if (dateKey === today) todaySec[r.sid] = (todaySec[r.sid] || 0) + r.durationSec;
+        }
+      });
+    });
+
+    $('loading').style.display = 'none';
+    $('content').style.display = 'block';
+
+    // 내 정보
+    const me = students.find(s => s.sid === mySid);
+    if (me) {
+      $('myName').textContent = me.name + ' · ' + seatLabel(me.seat || '');
+      $('myAvatar').textContent = [...me.name][0];
+      $('myToday').textContent = fmtDuration(todaySec[mySid] || 0);
+      $('myTotal').textContent = fmtDuration(me.totalSec || 0);
+      // 누적 순위
+      const sorted = [...students].sort((a,b) => (b.totalSec||0) - (a.totalSec||0));
+      const rk = sorted.findIndex(s => s.sid === mySid) + 1;
+      $('myRank').innerHTML = rk + '<small>위</small>';
+      $('myRankSub').textContent = '전체 ' + students.length + '명 중';
+    } else {
+      $('myName').textContent = '—';
+    }
+
+    renderList();
+  }
+
+  function setTab(t) {
+    curTab = t;
+    document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.t === t));
+    renderList();
+  }
+
+  function renderList() {
+    let ranked;
+    if (curTab === 'week') {
+      ranked = students.map(s => ({ ...s, val: weekTotals[s.sid] || 0 }));
+    } else {
+      ranked = students.map(s => ({ ...s, val: s.totalSec || 0 }));
+    }
+    ranked.sort((a,b) => b.val - a.val);
+
+    const list = $('rankList');
+    list.innerHTML = ranked.map((s, i) => {
+      const rank = i + 1;
+      const isMe = s.sid === mySid;
+      let cls = '', medal = '';
+      if (rank === 1) { cls = 'gold'; medal = '🥇'; }
+      else if (rank === 2) { cls = 'silver'; medal = '🥈'; }
+      else if (rank === 3) { cls = 'bronze'; medal = '🥉'; }
+      if (isMe) cls += ' me';
+      const rankEl = medal
+        ? `<span class="medal">${medal}</span>`
+        : `<span class="rk">${rank}</span>`;
+      const nm = maskName(s.name) + (isMe ? ' (나)' : '') + ' · ' + seatLabel(s.seat || '');
+      return `<div class="rrow ${cls}">
+        ${rankEl}
+        <div class="av">${[...s.name][0]}</div>
+        <div class="nm">${nm}</div>
+        <div class="tm">${fmtHM(s.val)}</div>
+      </div>`;
+    }).join('');
+  }
+</script>
+</body>
+</html>

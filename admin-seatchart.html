@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>좌석 배치표 · 가보자 서울대!</title>
+<link rel="manifest" href="manifest-admin.json">
+<meta name="theme-color" content="#12141C">
+<link rel="apple-touch-icon" href="icon-admin-192.png">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root { --bg:#161822; --card:#1E212D; --line:#2E3242; --blue:#2E466A; --blue-t:#7FB0FF; --text:#E4E4EC; --text-dim:#8A8A9A; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; background: var(--bg); color: var(--text); padding: 16px; }
+  .wrap { max-width: 760px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .top h1 { font-size: 18px; font-weight: 700; }
+  .top-r { display: flex; gap: 8px; }
+  .back { font-size: 12px; color: var(--blue-t); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; text-decoration: none; display:flex; align-items:center; }
+  .print-btn { font-size: 12px; color: #6FD6A8; background: #16241E; border: 1px solid #2E5A48; border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+  .intro { font-size: 13px; color: var(--text-dim); line-height: 1.6; margin-bottom: 14px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+
+  .controls { display: flex; gap: 8px; margin-bottom: 16px; }
+  .ctrl { flex: 1; font-size: 13px; background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 9px; padding: 10px; cursor: pointer; }
+  .ctrl.active { background: var(--blue); color: #CFE0FF; border-color: var(--blue); }
+  .ctrl.all { flex: 0 0 auto; }
+
+  .loading { text-align: center; color: var(--text-dim); padding: 40px; }
+
+  /* 인쇄되는 좌석표 (흰 종이) */
+  .sheet-area { }
+  .room-sheet { background: #fff; color: #111; border-radius: 10px; padding: 26px; margin-bottom: 16px; }
+  .room-sheet .rs-head { text-align: center; margin-bottom: 6px; }
+  .room-sheet .rs-title { font-size: 26px; font-weight: 800; color: #111; }
+  .room-sheet .rs-sub { font-size: 13px; color: #777; margin-top: 4px; }
+  .blackboard { background: #2B3B32; color: #cfe8d8; text-align: center; font-size: 15px; letter-spacing: 8px; padding: 10px; border-radius: 8px; margin: 16px 0 20px; font-weight: 600; }
+  .seat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .seat-cell { border: 2px solid #333; border-radius: 10px; padding: 12px 8px; text-align: center; min-height: 74px; display: flex; flex-direction: column; justify-content: center; }
+  .seat-cell .seat-no { font-size: 11px; color: #999; font-weight: 700; }
+  .seat-cell .seat-name { font-size: 17px; font-weight: 800; color: #111; margin-top: 4px; }
+  .seat-cell .seat-sid { font-size: 10px; color: #888; margin-top: 2px; }
+  .seat-cell.empty { border-style: dashed; border-color: #ccc; }
+  .seat-cell.empty .seat-name { color: #ccc; font-size: 13px; font-weight: 500; }
+  .rs-foot { text-align: center; font-size: 11px; color: #999; margin-top: 18px; }
+
+  @media print {
+    body { background: #fff; padding: 0; }
+    .top, .intro, .controls, .back, .print-btn { display: none; }
+    .room-sheet { border-radius: 0; padding: 10mm; margin: 0; page-break-after: always; }
+    .room-sheet:last-child { page-break-after: auto; }
+    @page { size: A4; margin: 8mm; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>좌석 배치표</h1>
+    <div class="top-r">
+      <button class="print-btn" onclick="window.print()">🖨 인쇄</button>
+      <a class="back" href="admin.html">← 메뉴</a>
+    </div>
+  </div>
+
+  <div class="intro">
+    학생들의 좌석 배치를 교실 모양 그대로 인쇄합니다. 순공실 입구나 게시판에 붙여 학생들이 자기 자리를 찾게 하세요.<br>
+    실을 선택하고 <b>인쇄</b>를 누르면 해당 실이 A4로 나옵니다. ‘전체’를 고르면 세 실이 각각 한 장씩 나옵니다.
+  </div>
+
+  <div class="controls">
+    <button class="ctrl active" data-r="2" onclick="setRoom(2)">2실</button>
+    <button class="ctrl" data-r="3" onclick="setRoom(3)">3실</button>
+    <button class="ctrl" data-r="4" onclick="setRoom(4)">4실</button>
+    <button class="ctrl all" data-r="all" onclick="setRoom('all')">전체</button>
+  </div>
+
+  <div id="loading" class="loading">불러오는 중...</div>
+  <div class="sheet-area" id="sheetArea"></div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  let students = [];
+  let curRoom = 2;
+
+  function roomSeats(room) {
+    const start = (room - 2) * 20 + 1;
+    const seats = [];
+    for (let col = 0; col < 4; col++)
+      for (let row = 0; row < 5; row++)
+        seats.push({ code: room + '-' + (start + col*5 + row), num: start + col*5 + row, row, col });
+    return seats;
+  }
+
+  db.goOnline();
+  db.ref('students').on('value', (snap) => {
+    students = [];
+    snap.forEach((child) => { students.push(child.val()); });
+    $('loading').style.display = 'none';
+    render();
+  });
+
+  function setRoom(r) {
+    curRoom = r;
+    document.querySelectorAll('.ctrl').forEach(b => b.classList.toggle('active', b.dataset.r == r));
+    render();
+  }
+
+  function roomSheet(room) {
+    const seats = roomSeats(room);
+    // 화면상 배치: 5행 4열, 각 열이 위→아래로 번호 증가
+    // grid는 행 우선이므로, (row, col) 순서로 다시 정렬해서 채움
+    const byPos = {};
+    seats.forEach(s => { byPos[s.row + '-' + s.col] = s; });
+
+    const assignedCount = seats.filter(s => students.find(st => st.seat === s.code)).length;
+
+    let cells = '';
+    for (let row = 0; row < 5; row++) {
+      for (let col = 0; col < 4; col++) {
+        const seat = byPos[row + '-' + col];
+        const student = students.find(st => st.seat === seat.code);
+        if (student) {
+          cells += `<div class="seat-cell">
+            <div class="seat-no">${seat.num}번</div>
+            <div class="seat-name">${esc(student.name)}</div>
+            <div class="seat-sid">${student.sid}</div>
+          </div>`;
+        } else {
+          cells += `<div class="seat-cell empty">
+            <div class="seat-no">${seat.num}번</div>
+            <div class="seat-name">빈자리</div>
+          </div>`;
+        }
+      }
+    }
+
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}. ${today.getMonth()+1}. ${today.getDate()}`;
+
+    return `<div class="room-sheet">
+      <div class="rs-head">
+        <div class="rs-title">${room}실 좌석 배치표</div>
+        <div class="rs-sub">가보자 서울대! 순공 프로그램 · 배정 ${assignedCount}/20</div>
+      </div>
+      <div class="blackboard">칠 판</div>
+      <div class="seat-grid">${cells}</div>
+      <div class="rs-foot">기준일 ${dateStr} · 전라고등학교 2학년</div>
+    </div>`;
+  }
+
+  function render() {
+    if (curRoom === 'all') {
+      $('sheetArea').innerHTML = roomSheet(2) + roomSheet(3) + roomSheet(4);
+    } else {
+      $('sheetArea').innerHTML = roomSheet(curRoom);
+    }
+  }
+
+  function esc(s) { return String(s).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])); }
+</script>
+</body>
+</html>

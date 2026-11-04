@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>학생 안내지 · 가보자 서울대!</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --ink: #1F1B2E;        /* 본문 진한 잉크 */
+    --ink-soft: #5A5470;   /* 보조 텍스트 */
+    --purple: #7C3AED;     /* 포인트 보라 */
+    --purple-soft: #EDE6FB;/* 연보라 배경 */
+    --purple-line: #D9CBF5;
+    --paper: #FFFFFF;
+    --paper-tint: #FAF8FF;
+    --line: #E8E4F0;
+    --cyan: #0891B2;       /* 보조 포인트 */
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "맑은 고딕", sans-serif;
+    background: #6B6480;
+    color: var(--ink);
+    padding: 24px;
+    line-height: 1.5;
+  }
+  /* 화면에서 보이는 컨트롤 바 */
+  .bar {
+    max-width: 794px; margin: 0 auto 16px; display: flex; justify-content: space-between; align-items: center;
+    background: #fff; border-radius: 12px; padding: 12px 16px;
+  }
+  .bar .t { font-size: 14px; color: var(--ink-soft); }
+  .bar .btns { display: flex; gap: 8px; }
+  .bar button, .bar a {
+    font-size: 13px; padding: 9px 16px; border-radius: 9px; cursor: pointer; text-decoration: none; border: none;
+  }
+  .bar .print { background: var(--purple); color: #fff; }
+  .bar .home { background: #F0EDF7; color: var(--ink); }
+
+  /* A4 종이 */
+  .page {
+    width: 794px;            /* A4 @ 96dpi */
+    min-height: 1123px;
+    margin: 0 auto;
+    background: var(--paper);
+    padding: 46px 52px;
+    position: relative;
+  }
+
+  /* 헤더 */
+  .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid var(--purple); padding-bottom: 20px; }
+  .header .brand .kicker { font-size: 13px; letter-spacing: 4px; color: var(--purple); font-weight: 700; }
+  .header .brand h1 { font-size: 40px; font-weight: 800; letter-spacing: -1px; margin-top: 6px; color: var(--ink); }
+  .header .brand .lead { font-size: 14px; color: var(--ink-soft); margin-top: 10px; max-width: 380px; line-height: 1.6; }
+  .header .stamp {
+    text-align: center; flex-shrink: 0; margin-left: 20px;
+    background: var(--purple-soft); border: 1.5px solid var(--purple-line); border-radius: 16px; padding: 14px 18px;
+  }
+  .header .stamp .big { font-size: 30px; font-weight: 800; color: var(--purple); line-height: 1; }
+  .header .stamp .small { font-size: 11px; color: var(--ink-soft); margin-top: 6px; letter-spacing: 1px; }
+
+  /* 섹션 공통 */
+  .section { margin-top: 30px; }
+  .section-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .section-head .num {
+    width: 30px; height: 30px; border-radius: 8px; background: var(--purple); color: #fff;
+    display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; flex-shrink: 0;
+  }
+  .section-head h2 { font-size: 20px; font-weight: 800; color: var(--ink); }
+  .section-head .tag { font-size: 12px; color: var(--ink-soft); margin-left: auto; }
+
+  /* 흐름(스텝) */
+  .flow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .flow .step {
+    background: var(--paper-tint); border: 1px solid var(--line); border-radius: 12px; padding: 14px 12px; text-align: center;
+  }
+  .flow .step .ic { font-size: 24px; }
+  .flow .step .st { font-size: 13px; font-weight: 700; margin-top: 8px; color: var(--ink); }
+  .flow .step .ds { font-size: 11px; color: var(--ink-soft); margin-top: 4px; line-height: 1.4; }
+  .flow .arrow { display: none; }
+
+  /* QR 2단 박스 */
+  .qr-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .qr-card { border: 1.5px solid var(--purple-line); border-radius: 16px; padding: 18px; display: flex; gap: 16px; align-items: center; background: var(--paper-tint); }
+  .qr-card .qrbox { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 8px; flex-shrink: 0; }
+  .qr-card .qrbox img { width: 104px; height: 104px; display: block; }
+  .qr-card .info .label { font-size: 12px; font-weight: 700; color: var(--purple); letter-spacing: 1px; }
+  .qr-card .info .title { font-size: 16px; font-weight: 800; margin: 4px 0 6px; }
+  .qr-card .info .desc { font-size: 12px; color: var(--ink-soft); line-height: 1.5; }
+  .qr-card .info .url { font-size: 10px; color: #9990AD; margin-top: 8px; word-break: break-all; }
+
+  /* 설치 방법 2단 */
+  .install { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 4px; }
+  .install .col { border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  .install .col h3 { font-size: 14px; font-weight: 800; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+  .install .col h3 .os { font-size: 11px; background: var(--purple-soft); color: var(--purple); padding: 2px 8px; border-radius: 6px; }
+  .install ol { margin-left: 4px; counter-reset: step; list-style: none; }
+  .install ol li { font-size: 12px; color: var(--ink); margin-bottom: 7px; padding-left: 24px; position: relative; line-height: 1.5; }
+  .install ol li::before {
+    counter-increment: step; content: counter(step);
+    position: absolute; left: 0; top: 0; width: 17px; height: 17px; border-radius: 50%;
+    background: var(--purple-soft); color: var(--purple); font-size: 10px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* 퇴실 필수 경고 박스 */
+  .alert {
+    display: flex; gap: 14px; align-items: flex-start;
+    background: #FFF4E8; border: 2px solid #F0A050; border-left: 6px solid #E8802E;
+    border-radius: 12px; padding: 16px 18px; margin-top: 14px;
+  }
+  .alert-ic { font-size: 28px; flex-shrink: 0; line-height: 1.2; }
+  .alert-body .alert-title { font-size: 15px; font-weight: 800; color: #B85C10; margin-bottom: 6px; }
+  .alert-body .alert-title u { text-decoration-color: #E8802E; text-underline-offset: 3px; }
+  .alert-body .alert-desc { font-size: 12.5px; color: #7A5220; line-height: 1.55; }
+  .alert-body .alert-desc b { color: #B85C10; }
+
+  /* 규칙 박스 */
+  .rules { background: var(--purple-soft); border-radius: 14px; padding: 18px 20px; }
+  .rules ul { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px; }
+  .rules li { font-size: 12.5px; color: var(--ink); padding-left: 20px; position: relative; line-height: 1.5; }
+  .rules li::before { content: "✓"; position: absolute; left: 0; color: var(--purple); font-weight: 800; }
+  .rules li b { color: var(--purple); }
+
+  /* 푸터 */
+  .footer { margin-top: 30px; padding-top: 16px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; }
+  .footer .left { font-size: 12px; color: var(--ink-soft); }
+  .footer .left b { color: var(--ink); }
+  .footer .right { font-size: 13px; font-weight: 800; color: var(--purple); }
+
+  @media print {
+    body { background: #fff; padding: 0; }
+    .bar { display: none; }
+    .page { width: 100%; min-height: auto; margin: 0; padding: 0; box-shadow: none; }
+    @page { size: A4; margin: 12mm; }
+  }
+</style>
+</head>
+<body>
+  <div class="bar">
+    <div class="t">🖨 인쇄 버튼을 누르면 A4 한 장으로 나옵니다. 학생들에게 나눠주세요.</div>
+    <div class="btns">
+      <a class="home" href="admin.html">← 메뉴</a>
+      <button class="print" onclick="window.print()">🖨 인쇄하기</button>
+    </div>
+  </div>
+
+  <div class="page">
+    <!-- 헤더 -->
+    <div class="header">
+      <div class="brand">
+        <div class="kicker">순공 프로그램 이용 안내</div>
+        <h1>가보자 서울대!</h1>
+        <div class="lead">순수 공부 시간(순공)을 측정하고 친구들과 순위를 겨루는 프로그램입니다. 아래 안내를 따라 신청하고, 순공실에서 QR로 공부 시간을 기록하세요.</div>
+      </div>
+      <div class="stamp">
+        <div class="big">2학년</div>
+        <div class="small">전라고등학교</div>
+      </div>
+    </div>
+
+    <!-- 1. 전체 흐름 -->
+    <div class="section">
+      <div class="section-head">
+        <div class="num">1</div><h2>이렇게 진행돼요</h2>
+        <div class="tag">전체 흐름 한눈에</div>
+      </div>
+      <div class="flow">
+        <div class="step"><div class="ic">📝</div><div class="st">① 신청하기</div><div class="ds">QR로 학번·이름 입력</div></div>
+        <div class="step"><div class="ic">🪑</div><div class="st">② 자리 배정</div><div class="ds">선생님이 순공실 좌석 배정</div></div>
+        <div class="step"><div class="ic">▶️</div><div class="st">③ 순공 시작</div><div class="ds">자리 QR 찍고 공부 시작</div></div>
+        <div class="step"><div class="ic">🏆</div><div class="st">④ 순위 확인</div><div class="ds">누적·주간 랭킹 겨루기</div></div>
+      </div>
+    </div>
+
+    <!-- 2. QR 두 개 -->
+    <div class="section">
+      <div class="section-head">
+        <div class="num">2</div><h2>먼저, 이 두 가지를 저장하세요</h2>
+      </div>
+      <div class="qr-row">
+        <div class="qr-card">
+          <div class="qrbox"><img id="qrApply" alt="신청 QR" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAXIAAAFyAQAAAADAX2ykAAAC8ElEQVR4nO2cQYrjMBBFX40FWcowB+ijyFebI80N4qP0AQL2MmDxZyHJzjRMQtNpTwxViyYmb1GgrtKvX0lMfCbGH5/CwXnnnf9WfrYawxxg7LMB2cwswNhDez/sk4/zT+Y7SZKAbKQJYD6JpKvZAJAkSdNe+Tj/bL4WZ5QY7STGPpvOc4D0HiglPuyYj/Pfws8B0gQ20Imxp/Tn/5aP88/l49XK/Zu0QJo66RyX/5eP81/mAwDbkGRp+rkY5AB0WLmOo4B5j3ycfz6fizwuqqrEfFJTWgFGMzPr98rH+efxoRYnAHM2jX0HxKuJGRj7jlsL5NXyd/4hPwfM+mxmb5IN7cI1e7saxAUbyMbo8+8BeaSpk85ULVVeaepK0eocJYir3Hq1/J2/H0VfGfFipCljAJZ+Z9u6ssYhINdXR+Wrl1EMDeLVIErFriz+RlzaJPyK+Tt/J6rvuHZgSSpdOWlr17VTe38+Gk890I/3L/xlckjg53tAvuorTZ1IU1e0lM6wbhW6Ogkn+fkej1/1M2x/atXCWsT4+R6TD0A2JeVQrcl4CRrfln/wr5a/8w9CWq/ZtZJLky6qCkr91ndfLX/nH8TNMUInUtn0V+FV+jN0rq+Oybf6bbNQ01dNTuumsL1+j8fTZqHVhizHLW2jUfsX8Po9Jr/q5/kkRgvoV5+tOlm0j3Mw+37heHwoGyLipSrpcQDS+0m2MgKoi8NXy9/5B3F7/8blVk6X1jxR9bP7k0fkqbvAqHVftEqrcgk3zvXVEfnqP6t5kc2OhjoQrfsFub46IN/2R3DjSm47B8pMvB38q+Xv/P0IQFfMSINsEC/BiBOUR0DM2UjnPfJx/jv49v2FzdDIRh2cspn1nfzzV8fn2/fLbKCTDaWctS6Gd8/H+S/z4cOzpSm313HCICxGBEvaIx/nn8uzqeZmUqrZWXE1KVlN6FfL3/n7UVyr+jD3ADkISiUHjW9XU5p6I52XHfJx/rm8+e8zOO/8Yfk/kw872a90Q/UAAAAASUVORK5CYII="></div>
+          <div class="info">
+            <div class="label">신청할 때</div>
+            <div class="title">순공 참여 신청</div>
+            <div class="desc">이 QR을 찍고 학번·이름을 입력하면 신청 완료. 신청 순서가 빠를수록 우선권이 있어요.</div>
+            <div class="url" id="urlApply"></div>
+          </div>
+        </div>
+        <div class="qr-card">
+          <div class="qrbox"><img id="qrHome" alt="랭킹 QR" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUoAAAFKAQAAAABTUiuoAAACZklEQVR4nO2aQWrkMBBFX0WCXsqQA+Qo7pvN1ayj5AAD0rJB5s9Cco+TxZAZSFpDqhbGkt/iQ1FS6VsmPhj56aMkOOqoo09QbcSV3cjLbmYLmFnk+BQn0eooQZIkIMh+FIBqJqnBKkkq02h1dNQR1Ah5AW1JIvc5M7t+ugBHPxTxzWg3ATLSHiGVLxDg6D+jQWYLaKtHqX2xAEf/GD0h5za+xsaqPYr6DCQB9fMEOPqX6N77vj6xFrBrvciuANmst4iTaP3eaBzVA0DdTfmljVFewpuie7hWR5FKGDlZ1YAkSWqjMRwfJG0P1+rofd/ao/JSRL4akIqgGkBoUJ/bBFod5TgY00vomA5iLePRw2vr8ejIVk9Kz0w7rY7a0lgTPVsToOgerGpoI4y3Ec33rWlQjo7iXlHpSN6Io+g8W1Og9dIz049Va6GbhaPU0s3smtpnCnD0oxEhNYAgqIuRl4Ktr7EpW+i+PHkpM2h19L7+tV5Wo//jaDB835oJpf+8Wo9OUFvPW3jfy3u2JkGD4G4Mjn1rt5PJge9bc6Cnijp1hxtB54eft+ZAu/Nk62vE1g2AICP9NMHefXmD6M7TDOjpdCyVo9T023QqAPi+NQXKkQ+GB9/7vyQNV6PgPeE0aKS77IBRF8gW2lj6AFFDI1vwlXAedNx54reNezPWctwsdC9jEjS+G9tawNbXi8jX0OitRvUuYwr0fbaULTTyy+3eDsK4q/ZwrY52tBtMJHUPSnq9SCq7jTPYTFq/Mxq5H6ugLsPLIN0MkrB1C7I+93Ctjr6583S64nT8Oz7NPlyro47+T+gvhIKxFEshg3UAAAAASUVORK5CYII="></div>
+          <div class="info">
+            <div class="label">집에서 순위 볼 때</div>
+            <div class="title">내 순위·기록 보기</div>
+            <div class="desc">집에서도 이 QR로 접속해 학번·PIN으로 내 순위를 확인하세요. 홈 화면에 추가하면 앱처럼 쓸 수 있어요.</div>
+            <div class="url" id="urlHome"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. 홈 화면 추가(설치) -->
+    <div class="section">
+      <div class="section-head">
+        <div class="num">3</div><h2>앱처럼 쓰기 (홈 화면에 추가)</h2>
+        <div class="tag">선택 사항 · 안 해도 됩니다</div>
+      </div>
+      <div class="install">
+        <div class="col">
+          <h3>아이폰 <span class="os">Safari</span></h3>
+          <ol>
+            <li>사파리로 위의 <b>랭킹 QR</b>을 열어요.</li>
+            <li>아래 <b>공유 버튼</b>(⬆️ 네모+화살표)을 눌러요.</li>
+            <li><b>‘홈 화면에 추가’</b>를 선택해요.</li>
+            <li>홈 화면에 아이콘이 생기면 끝!</li>
+          </ol>
+        </div>
+        <div class="col">
+          <h3>안드로이드 <span class="os">Chrome</span></h3>
+          <ol>
+            <li>크롬으로 위의 <b>랭킹 QR</b>을 열어요.</li>
+            <li>오른쪽 위 <b>⋮ 메뉴</b>를 눌러요.</li>
+            <li><b>‘홈 화면에 추가’</b> 또는 <b>‘앱 설치’</b>를 선택해요.</li>
+            <li>홈 화면에 아이콘이 생기면 끝!</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. 순공하는 법 -->
+    <div class="section">
+      <div class="section-head">
+        <div class="num">4</div><h2>순공실에서 공부 시간 기록하는 법</h2>
+      </div>
+      <div class="flow" style="grid-template-columns: repeat(5, 1fr);">
+        <div class="step"><div class="ic">📷</div><div class="st">자리 QR 스캔</div><div class="ds">내 자리 책상의 QR을 찍어요</div></div>
+        <div class="step"><div class="ic">🔑</div><div class="st">본인 확인</div><div class="ds">학번·PIN 입력 (첫날 PIN 설정)</div></div>
+        <div class="step"><div class="ic">🔢</div><div class="st">오늘 코드</div><div class="ds">칠판의 4자리 코드 입력</div></div>
+        <div class="step"><div class="ic">⏱️</div><div class="st">순공 시작</div><div class="ds">타이머가 돌아가요</div></div>
+        <div class="step"><div class="ic">🏁</div><div class="st">종료(퇴실)</div><div class="ds">끝나면 자리 QR 다시 스캔</div></div>
+      </div>
+
+      <div class="alert">
+        <div class="alert-ic">⚠️</div>
+        <div class="alert-body">
+          <div class="alert-title">공부를 마치면 <u>반드시 자리 QR을 다시 찍어 ‘퇴실’</u>하세요!</div>
+          <div class="alert-desc">퇴실(종료)을 찍지 않으면 그날 순공 시간이 <b>기록되지 않고 무효 처리</b>됩니다. 아무리 오래 공부해도 퇴실을 안 하면 0분이에요. 화장실·저녁 식사로 잠깐 나갔다 와도 괜찮으니, <b>완전히 집에 갈 때 꼭 퇴실 QR을 찍으세요.</b></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. 꼭 지켜요 -->
+    <div class="section">
+      <div class="section-head">
+        <div class="num">5</div><h2>꼭 기억하세요</h2>
+      </div>
+      <div class="rules">
+        <ul>
+          <li>순공 인정 시간은 <b>오전 7시 ~ 밤 10시</b>예요.</li>
+          <li>공부를 마치면 <b>반드시 자리 QR을 다시 찍어</b> 종료하세요.</li>
+          <li>종료를 안 찍으면 그날 기록이 <b>무효</b>가 될 수 있어요.</li>
+          <li><b>PIN은 첫 순공 시작 때</b> 직접 정해요. 잊지 마세요!</li>
+          <li>순위의 이름은 <b>가운데 글자가 가려져</b> 표시돼요.</li>
+          <li>순공 시작·종료는 <b>순공실 자리 QR로만</b> 가능해요.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 푸터 -->
+    <div class="footer">
+      <div class="left">문의: <b>담임 선생님</b> · 전라고등학교 2학년 순공 프로그램</div>
+      <div class="right">가보자 서울대! 🚀</div>
+    </div>
+  </div>
+
+<script>
+  document.getElementById('urlApply').textContent = 'https://jeolla-soongong.pages.dev/apply.html';
+  document.getElementById('urlHome').textContent = 'https://jeolla-soongong.pages.dev/';
+</script>
+</body>
+</html>

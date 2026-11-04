@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>과거 기록 · 가보자 서울대!</title>
+<link rel="manifest" href="manifest-admin.json">
+<meta name="theme-color" content="#12141C">
+<link rel="apple-touch-icon" href="icon-admin-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="순공 관리">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  :root {
+    --bg: #161822; --card: #1E212D; --card2: #1A1C26; --line: #2E3242;
+    --blue: #2E466A; --blue-t: #7FB0FF; --text: #E4E4EC; --text-dim: #8A8A9A; --text-mute: #5A5A6A;
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 16px; }
+  .wrap { max-width: 520px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .top h1 { font-size: 18px; font-weight: 700; }
+  .back { font-size: 12px; color: var(--blue-t); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; text-decoration: none; }
+
+  /* 날짜 이동 바 (하나의 바) */
+  .datebar { display: flex; align-items: center; margin-bottom: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 11px; overflow: hidden; height: 46px; }
+  .datebar .nav { width: 50px; height: 100%; flex-shrink: 0; background: none; border: none; color: var(--blue-t); font-size: 20px; cursor: pointer; }
+  .datebar .nav:active { background: rgba(127,176,255,0.12); }
+  .datebar .cur { position: relative; flex: 1; height: 100%; background: none; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; white-space: nowrap; }
+  .datebar .cur:active { background: rgba(255,255,255,0.04); }
+  .datebar .cur .cal { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); font-size: 14px; opacity: .7; }
+  .datebar .cur .d { font-size: 15px; font-weight: 700; white-space: nowrap; }
+
+  .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 12px; }
+  .sc { border-radius: 11px; padding: 10px 6px; text-align: center; }
+  .sc .n { font-size: 19px; font-weight: 700; }
+  .sc .t { font-size: 10px; margin-top: 2px; }
+  .sc.done { background: #241D08; border: 1px solid #5A4A2A; } .sc.done .n { color: #E0C24A; } .sc.done .t { color: #9A8A5A; }
+  .sc.invalid { background: #1A1A1F; border: 1px solid #3E3E48; } .sc.invalid .n { color: #A8A8B4; } .sc.invalid .t { color: #787884; }
+  .sc.absent { background: #2A1418; border: 1px solid #5A2E38; } .sc.absent .n { color: #D87A8A; } .sc.absent .t { color: #9A6A72; }
+
+  .room-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+  .rtab { flex: 1; font-size: 12px; background: var(--card); color: var(--text-dim); border: 1px solid var(--line); border-radius: 8px; padding: 8px; cursor: pointer; }
+  .rtab.active { background: var(--blue); color: #CFE0FF; border-color: var(--blue); }
+
+  .room { background: #14141F; border-radius: 12px; padding: 14px; }
+  .room .rhd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .room .rhd .nm { font-size: 14px; font-weight: 600; }
+  .room .rhd .st { font-size: 11px; color: #E0C24A; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .seat { min-height: 66px; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; cursor: pointer; padding: 6px 3px; }
+  .seat .no { font-size: 11px; font-weight: 600; }
+  .seat .nm { font-size: 15px; font-weight: 700; line-height: 1.1; text-align: center; word-break: keep-all; }
+  .seat .tm { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: .2px; margin-top: 1px; }
+  .seat.done { background: #241D08; border: 1px solid #8A6A2A; } .seat.done .no { color: #9A8A5A; } .seat.done .nm { color: #E0C24A; } .seat.done .tm { color: #E0C24A; }
+  .seat.studying { background: #16281F; border: 1px solid #2E9A6E; } .seat.studying .no { color: #5A9A7A; } .seat.studying .nm { color: #8FE0B8; } .seat.studying .tm { color: #6FD6A8; }
+  .seat.paused { background: #12202E; border: 1px solid #3A6A96; } .seat.paused .no { color: #5A8AA8; } .seat.paused .nm { color: #7FC0E8; } .seat.paused .tm { color: #7FC0E8; }
+  .seat.invalid { background: #1A1A1F; border: 1px solid #4A4A54; } .seat.invalid .no { color: #78788A; } .seat.invalid .nm { color: #A8A8B4; } .seat.invalid .tm { color: #A8A8B4; }
+  .seat.absent { background: #2A1418; border: 1px solid #9A3A4A; } .seat.absent .no { color: #9A6A72; } .seat.absent .nm { color: #D87A8A; } .seat.absent .tm { color: #D87A8A; }
+  .seat.empty { background: #22252F; border: 1px dashed #4A4A5A; } .seat.empty .no { color: #5A5A6A; font-size: 10px; } .seat.empty .nm { color: #5A5A6A; font-size: 11px; font-weight: 500; }
+  .seat:active { opacity: 0.7; }
+
+  .legend { display: flex; gap: 12px; justify-content: center; margin: 12px 0 4px; font-size: 10px; color: var(--text-dim); flex-wrap: wrap; }
+  .legend span { display: flex; align-items: center; gap: 4px; }
+  .legend .dot { width: 9px; height: 9px; border-radius: 2px; }
+
+  .loading { text-align: center; color: var(--text-dim); padding: 40px; }
+
+  /* 달력 팝업 */
+  .cal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 200; padding: 20px; }
+  .cal-bg.show { display: flex; }
+  .cal { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px; max-width: 340px; width: 100%; }
+  .cal .chd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .cal .chd .mv { width: 38px; height: 38px; background: var(--card2); border: 1px solid var(--line); border-radius: 9px; color: var(--blue-t); font-size: 18px; cursor: pointer; }
+  .cal .chd .ym { font-size: 15px; font-weight: 700; }
+  .cal .dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; margin-bottom: 4px; }
+  .cal .dow span { text-align: center; font-size: 11px; color: var(--text-mute); padding: 4px 0; }
+  .cal .days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+  .cal .day { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 8px; font-size: 13px; color: var(--text); cursor: pointer; position: relative; }
+  .cal .day.blank { visibility: hidden; }
+  .cal .day.has { background: var(--card2); }
+  .cal .day.has .mk { width: 4px; height: 4px; border-radius: 50%; background: #E0C24A; margin-top: 2px; }
+  .cal .day.sel { background: var(--blue); color: #CFE0FF; font-weight: 700; }
+  .cal .day.future { color: var(--text-mute); }
+  .cal .day:active { opacity: .7; }
+  .cal .close { display: block; width: 100%; margin-top: 14px; padding: 11px; background: var(--card2); border: 1px solid var(--line); border-radius: 10px; color: var(--text-dim); font-size: 13px; cursor: pointer; }
+
+  /* 좌석 상세 모달 */
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 200; padding: 20px; }
+  .modal-bg.show { display: flex; }
+  .modal { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 22px; max-width: 320px; width: 100%; }
+  .modal .mhd { display: flex; justify-content: space-between; align-items: start; margin-bottom: 16px; }
+  .modal .mhd .who { font-size: 17px; font-weight: 700; } .modal .mhd .seat-lbl { font-size: 12px; color: var(--text-dim); margin-top: 3px; }
+  .modal .close-x { font-size: 20px; color: var(--text-dim); cursor: pointer; background: none; border: none; }
+  .modal .stat-badge { display: inline-block; font-size: 12px; padding: 4px 10px; border-radius: 8px; margin-bottom: 14px; }
+  .modal .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-top: 1px solid var(--line); font-size: 13px; }
+  .modal .detail-row .k { color: var(--text-dim); } .modal .detail-row .v { color: var(--text); font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div><h1>과거 기록</h1></div>
+    <a class="back" href="admin.html">← 메뉴</a>
+  </div>
+
+  <div class="datebar">
+    <button class="nav" onclick="shiftDay(-1)">‹</button>
+    <div class="cur" onclick="openCal()"><span class="cal">📅</span><span class="d" id="curDateLbl">—</span></div>
+    <button class="nav" onclick="shiftDay(1)">›</button>
+  </div>
+
+  <div class="summary">
+    <div class="sc done"><div class="n" id="cDone">0</div><div class="t">순공</div></div>
+    <div class="sc invalid"><div class="n" id="cInvalid">0</div><div class="t">무효</div></div>
+    <div class="sc absent"><div class="n" id="cAbsent">0</div><div class="t">결석</div></div>
+  </div>
+
+  <div class="room-tabs">
+    <button class="rtab active" data-r="2" onclick="setRoom(2)">2실</button>
+    <button class="rtab" data-r="3" onclick="setRoom(3)">3실</button>
+    <button class="rtab" data-r="4" onclick="setRoom(4)">4실</button>
+  </div>
+
+  <div id="loading" class="loading">불러오는 중...</div>
+  <div id="roomView"></div>
+
+  <div class="legend">
+    <span><span class="dot" style="background:#C2A22E;"></span>순공(시간)</span>
+    <span><span class="dot" style="background:#4A4A54;"></span>무효</span>
+    <span><span class="dot" style="background:#9A3A4A;"></span>결석</span>
+    <span><span class="dot" style="background:#22252F;border:1px dashed #4A4A5A;"></span>빈자리</span>
+  </div>
+</div>
+
+<!-- 달력 팝업 -->
+<div class="cal-bg" id="calBg">
+  <div class="cal">
+    <div class="chd">
+      <button class="mv" onclick="calMove(-1)">‹</button>
+      <div class="ym" id="calYm">—</div>
+      <button class="mv" onclick="calMove(1)">›</button>
+    </div>
+    <div class="dow"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
+    <div class="days" id="calDays"></div>
+    <button class="close" onclick="closeCal()">닫기</button>
+  </div>
+</div>
+
+<!-- 좌석 상세 모달 -->
+<div class="modal-bg" id="modal"><div class="modal" id="modalBody"></div></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const DOW = ['일','월','화','수','목','금','토'];
+  let students = [];
+  let allRecords = {};   // dateKey → { sid → rec }
+  let curDate = todayKey();
+  let curRoom = 2;
+  let calY, calM;        // 달력 팝업이 보고 있는 연/월
+
+  updateDateLabel();  // 데이터 로드 전에도 날짜부터 바로 표시
+  init();
+  async function init() {
+    db.goOnline();
+    const stuList = await new Promise((resolve) => {
+      db.ref('students').on('value', (snap) => {
+        const list = [];
+        snap.forEach(c => { list.push(c.val()); });
+        students = list;
+        resolve(list);
+        renderRoom();  // 학생 변동 시 다시 그림
+      });
+    });
+    const recSnap = await db.ref('records').get();
+    allRecords = {};
+    recSnap.forEach(dayNode => {
+      const day = {};
+      dayNode.forEach(r => { day[r.key] = r.val(); });
+      allRecords[dayNode.key] = day;
+    });
+    // 같은 데이터로 밀린 기록 정리 (records 다시 안 읽음) + 화면 데이터에도 반영
+    const invalidated = await sweepStaleRecords(recSnap);
+    invalidated.forEach(it => {
+      const d = allRecords[it.date];
+      if (d && d[it.sid]) { d[it.sid].status = 'invalid'; d[it.sid].durationSec = 0; d[it.sid].endAt = Date.now(); }
+    });
+    students = stuList;
+    $('loading').style.display = 'none';
+    // 데이터가 있는 가장 최근 날짜로 시작 (없으면 오늘)
+    const dates = Object.keys(allRecords).sort();
+    if (dates.length && !allRecords[curDate]) curDate = dates[dates.length - 1];
+    renderRoom();
+  }
+
+  function roomSeats(room) {
+    const start = (room - 2) * 20 + 1;
+    const seats = [];
+    for (let col = 0; col < 4; col++)
+      for (let row = 0; row < 5; row++)
+        seats.push({ code: room + '-' + (start + col*5 + row), num: start + col*5 + row });
+    return seats;
+  }
+
+  // 초 → 시:분 (4:25 = 4시간 25분)
+  function fmtDayHM(sec) {
+    sec = Math.max(0, sec | 0);
+    return Math.floor(sec / 3600) + ':' + String(Math.floor(sec % 3600 / 60)).padStart(2, '0');
+  }
+
+  // 그날 한 학생의 표시 정보
+  function dayCell(rec) {
+    if (!rec) return { cls: 'absent', tm: '결석' };
+    if (rec.status === 'done') return { cls: 'done', tm: fmtDayHM(rec.durationSec || 0) };
+    if (rec.status === 'invalid') return { cls: 'invalid', tm: '무효' };
+    if (rec.status === 'ongoing' || rec.status === 'paused') {
+      let s = rec.accumSec || 0;
+      if (rec.status === 'ongoing') { const ss = rec.segStart || rec.startAt; s += Math.floor((Date.now() - ss) / 1000); }
+      return { cls: rec.status === 'ongoing' ? 'studying' : 'paused', tm: fmtDayHM(s) };
+    }
+    return { cls: 'absent', tm: '결석' };
+  }
+
+  function setRoom(r) {
+    curRoom = r;
+    document.querySelectorAll('.rtab').forEach(b => b.classList.toggle('active', +b.dataset.r === r));
+    renderRoom();
+  }
+
+  function updateDateLabel() {
+    const d = new Date(curDate + 'T00:00:00');
+    $('curDateLbl').textContent = `${d.getMonth()+1}월 ${d.getDate()}일 (${DOW[d.getDay()]})`;
+  }
+
+  function renderRoom() {
+    updateDateLabel();
+    const day = allRecords[curDate] || {};
+    // 요약 (좌석 배정된 학생 기준)
+    let nDone = 0, nInv = 0, nAbs = 0;
+    students.forEach(s => {
+      if (!s.seat) return;
+      const rec = day[s.sid];
+      if (rec && rec.status === 'done') nDone++;
+      else if (rec && rec.status === 'invalid') nInv++;
+      else if (!rec) nAbs++;
+      // 진행중·멈춤(오늘만 발생)은 아직 완료 전이라 어느 칸에도 안 셈
+    });
+    $('cDone').textContent = nDone;
+    $('cInvalid').textContent = nInv;
+    $('cAbsent').textContent = nAbs;
+
+    const seats = roomSeats(curRoom);
+    let html = '';
+    seats.forEach(seat => {
+      const student = students.find(s => s.seat === seat.code);
+      if (!student) {
+        html += `<div class="seat empty"><span class="no">${seat.num}번</span><span class="nm">빈자리</span></div>`;
+      } else {
+        const info = dayCell(day[student.sid]);
+        html += `<div class="seat ${info.cls}" onclick="showDetail('${student.sid}','${seat.code}')">
+          <span class="no">${seat.num}번</span>
+          <span class="nm">${esc(student.name)}</span>
+          <span class="tm">${info.tm}</span></div>`;
+      }
+    });
+    $('roomView').innerHTML =
+      `<div class="room"><div class="rhd"><span class="nm">${curRoom}실</span><span class="st">순공 ${countRoomDone(seats, day)}명</span></div><div class="grid">${html}</div></div>`;
+  }
+
+  function countRoomDone(seats, day) {
+    let n = 0;
+    seats.forEach(seat => {
+      const student = students.find(s => s.seat === seat.code);
+      if (student) { const rec = day[student.sid]; if (rec && rec.status === 'done') n++; }
+    });
+    return n;
+  }
+
+  // Date 객체 → 로컬(한국) 기준 YYYY-MM-DD 키
+  function dateToKey(d) {
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+
+  // 날짜 이동
+  function shiftDay(delta) {
+    const d = new Date(curDate + 'T00:00:00');
+    d.setDate(d.getDate() + delta);
+    curDate = dateToKey(d);
+    renderRoom();
+  }
+
+  // ===== 달력 팝업 =====
+  function openCal() {
+    const d = new Date(curDate + 'T00:00:00');
+    calY = d.getFullYear(); calM = d.getMonth();
+    renderCal();
+    $('calBg').classList.add('show');
+  }
+  function closeCal() { $('calBg').classList.remove('show'); }
+  function calMove(delta) {
+    calM += delta;
+    if (calM < 0) { calM = 11; calY--; }
+    else if (calM > 11) { calM = 0; calY++; }
+    renderCal();
+  }
+  function renderCal() {
+    $('calYm').textContent = `${calY}년 ${calM + 1}월`;
+    const first = new Date(calY, calM, 1).getDay();
+    const last = new Date(calY, calM + 1, 0).getDate();
+    const today = todayKey();
+    let html = '';
+    for (let i = 0; i < first; i++) html += `<div class="day blank"></div>`;
+    for (let d = 1; d <= last; d++) {
+      const key = `${calY}-${String(calM+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const has = !!allRecords[key];
+      const sel = key === curDate;
+      const future = key > today;
+      html += `<div class="day ${has?'has':''} ${sel?'sel':''} ${future?'future':''}" onclick="pickDate('${key}')">
+        ${d}${has && !sel ? '<span class="mk"></span>' : ''}</div>`;
+    }
+    $('calDays').innerHTML = html;
+  }
+  function pickDate(key) {
+    curDate = key;
+    closeCal();
+    renderRoom();
+  }
+  $('calBg').addEventListener('click', e => { if (e.target.id === 'calBg') closeCal(); });
+
+  // ===== 좌석 상세 =====
+  function showDetail(sid, code) {
+    const student = students.find(s => s.sid === sid);
+    const rec = (allRecords[curDate] || {})[sid];
+    const info = dayCell(rec);
+    const label = { done: ['순공 완료','#241D08','#E0C24A'], studying: ['순공 중','#16281F','#6FD6A8'], paused: ['잠시 멈춤','#12202E','#7FC0E8'], invalid: ['무효','#1A1A1F','#A8A8B4'], absent: ['결석','#2A1418','#D87A8A'] }[info.cls];
+    let details = '';
+    if (rec && rec.startAt) {
+      const sd = new Date(rec.startAt);
+      details += row('시작', `${p2(sd.getHours())}:${p2(sd.getMinutes())}`);
+      if (rec.endAt && (rec.status === 'done' || rec.status === 'invalid')) {
+        const ed = new Date(rec.endAt);
+        details += row('종료', `${p2(ed.getHours())}:${p2(ed.getMinutes())}`);
+      }
+      if (rec.status === 'done') details += row('순공 시간', fmtDuration(rec.durationSec || 0));
+      else if (rec.status === 'invalid') details += row('처리', '무효 (퇴실 안 함 / 시간 초과)');
+    } else {
+      details += `<div class="detail-row"><span class="k">그날 기록</span><span class="v">결석</span></div>`;
+    }
+    details += row('누적 시간', fmtDuration(student.totalSec || 0));
+    details += row('소속', (student.cls || '') + '반 · ' + student.sid);
+
+    $('modalBody').innerHTML = `
+      <div class="mhd">
+        <div><div class="who">${esc(student.name)}</div><div class="seat-lbl">${seatLabel(code)}</div></div>
+        <button class="close-x" onclick="closeModal()">✕</button>
+      </div>
+      <div class="stat-badge" style="background:${label[1]};color:${label[2]};">${label[0]}</div>
+      ${details}`;
+    $('modal').classList.add('show');
+  }
+  function row(k, v) { return `<div class="detail-row"><span class="k">${k}</span><span class="v">${v}</span></div>`; }
+  function closeModal() { $('modal').classList.remove('show'); }
+  $('modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
+
+  function esc(s) { return String(s).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])); }
+  function p2(n) { return String(n).padStart(2, '0'); }
+</script>
+</body>
+</html>

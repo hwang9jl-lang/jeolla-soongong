@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>가보자 서울대! · 순공 신청</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0A0A14">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="가보자 서울대!">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  :root {
+    --bg: #0A0A14;
+    --card: #12121F;
+    --card2: #1A1C26;
+    --line: #2A2A45;
+    --purple: #B14BFF;
+    --purple-d: #12082E;
+    --cyan: #00E5FF;
+    --text: #F0F0F5;
+    --text-dim: #8A8A9A;
+    --text-mute: #5A5A6A;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .wrap { width: 100%; max-width: 400px; }
+  .logo {
+    text-align: center;
+    margin-bottom: 28px;
+  }
+  .logo .title {
+    font-size: 26px;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: -0.5px;
+    text-shadow: 0 0 20px rgba(177,75,255,0.5);
+  }
+  .logo .sub {
+    font-size: 13px;
+    color: var(--purple);
+    letter-spacing: 3px;
+    margin-top: 6px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 26px 22px;
+  }
+  .card h2 {
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .card .desc {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-bottom: 22px;
+    line-height: 1.5;
+  }
+  label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    margin-top: 16px;
+  }
+  label:first-of-type { margin-top: 0; }
+  input {
+    width: 100%;
+    background: var(--card2);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 15px 16px;
+    font-size: 16px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  input:focus { border-color: var(--purple); }
+  input::placeholder { color: var(--text-mute); }
+  .hint {
+    font-size: 12px;
+    color: var(--text-mute);
+    margin-top: 6px;
+    min-height: 16px;
+  }
+  .hint.show { color: var(--cyan); }
+  button {
+    width: 100%;
+    margin-top: 24px;
+    padding: 17px;
+    background: linear-gradient(135deg, #B14BFF, #8A2BE2);
+    border: none;
+    border-radius: 14px;
+    color: #fff;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    box-shadow: 0 0 20px rgba(177,75,255,0.4);
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  button:active { transform: scale(0.98); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
+  .msg {
+    margin-top: 16px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    text-align: center;
+    display: none;
+    line-height: 1.5;
+  }
+  .msg.err { display: block; background: #2A1418; border: 1px solid #5A2E38; color: #FF8BA5; }
+  .msg.ok { display: block; background: #12082E; border: 1px solid var(--purple); color: #D89BFF; }
+  /* 신청 완료 화면 */
+  .done { text-align: center; display: none; padding: 10px 0; }
+  .done.show { display: block; }
+  .done .num {
+    font-size: 60px;
+    font-weight: 800;
+    color: #fff;
+    text-shadow: 0 0 20px var(--purple);
+    line-height: 1;
+    margin: 10px 0;
+  }
+  .done .num small { font-size: 22px; color: var(--purple); }
+  .done .label { font-size: 13px; color: var(--purple); letter-spacing: 2px; }
+  .done .info { font-size: 14px; color: var(--text-dim); margin-top: 18px; line-height: 1.7; }
+  .done .warn { font-size: 12px; color: var(--text-mute); margin-top: 20px; line-height: 1.6; }
+  /* 신청 마감 화면 */
+  .closed { text-align: center; display: none; padding: 20px 0; }
+  .closed.show { display: block; }
+  .closed .icon { font-size: 40px; margin-bottom: 12px; }
+  .closed h2 { font-size: 18px; margin-bottom: 8px; }
+  .closed p { font-size: 14px; color: var(--text-dim); line-height: 1.6; }
+  .loading { text-align: center; padding: 40px 0; color: var(--text-dim); font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo">
+    <div class="title">가보자 서울대!</div>
+    <div class="sub">순공 프로그램</div>
+  </div>
+
+  <div class="card">
+    <!-- 로딩 -->
+    <div id="loading" class="loading">불러오는 중...</div>
+
+    <!-- 신청 폼 -->
+    <div id="form" style="display:none;">
+      <h2>순공 참여 신청</h2>
+      <div class="desc">학번과 이름을 정확히 입력해 주세요.<br>신청 순서대로 접수됩니다.</div>
+
+      <label>학번</label>
+      <input id="sid" type="tel" inputmode="numeric" maxlength="5" placeholder="예: 20307" autocomplete="off">
+      <div id="sidHint" class="hint"></div>
+
+      <label>이름</label>
+      <input id="name" type="text" maxlength="10" placeholder="예: 김서준" autocomplete="off">
+
+      <button id="submitBtn">신청하기</button>
+      <div id="msg" class="msg"></div>
+    </div>
+
+    <!-- 신청 완료 -->
+    <div id="done" class="done">
+      <div class="label">신청 완료</div>
+      <div class="num" id="doneNum">—</div>
+      <div class="info" id="doneInfo"></div>
+      <div class="warn">
+        신청 순서는 우선권이며, 최종 참여자는 선생님이 확정합니다.<br>
+        PIN(비밀번호)은 첫 순공 시작 때 직접 설정합니다.
+      </div>
+    </div>
+
+    <!-- 신청 마감 -->
+    <div id="closed" class="closed">
+      <div class="icon">🔒</div>
+      <h2>신청 기간이 아닙니다</h2>
+      <p>현재는 순공 신청을 받고 있지 않습니다.<br>선생님께 문의해 주세요.</p>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  let applyOpen = false;
+
+  // 신청 열림 여부 확인
+  db.ref('settings/applyOpen').get().then((snap) => {
+    applyOpen = snap.val() === true;
+    $('loading').style.display = 'none';
+    if (applyOpen) {
+      $('form').style.display = 'block';
+    } else {
+      $('closed').classList.add('show');
+    }
+  }).catch((e) => {
+    $('loading').textContent = '연결 오류. 잠시 후 다시 시도해 주세요.';
+    console.error(e);
+  });
+
+  // 학번 입력 시 소속 반 힌트
+  $('sid').addEventListener('input', function() {
+    this.value = this.value.replace(/[^0-9]/g, '');
+    const hint = $('sidHint');
+    if (this.value.length >= 4) {
+      const label = classNoFromStudentId(this.value);
+      if (label) { hint.textContent = '2학년 ' + label; hint.classList.add('show'); }
+      else { hint.textContent = ''; hint.classList.remove('show'); }
+    } else {
+      hint.textContent = ''; hint.classList.remove('show');
+    }
+  });
+
+  // 신청 제출
+  $('submitBtn').addEventListener('click', submitApply);
+
+  function showMsg(text, type) {
+    const m = $('msg');
+    m.textContent = text;
+    m.className = 'msg ' + type;
+  }
+
+  async function submitApply() {
+    const sid = $('sid').value.trim();
+    const name = $('name').value.trim();
+
+    // 검증
+    if (sid.length < 5) { showMsg('학번 5자리를 정확히 입력해 주세요.', 'err'); return; }
+    if (!name) { showMsg('이름을 입력해 주세요.', 'err'); return; }
+    if (sid[0] !== '2') { showMsg('2학년 학번만 신청할 수 있습니다.', 'err'); return; }
+
+    $('submitBtn').disabled = true;
+    $('submitBtn').textContent = '신청 중...';
+
+    try {
+      // 신청 열림 재확인
+      const openSnap = await db.ref('settings/applyOpen').get();
+      if (openSnap.val() !== true) {
+        showMsg('신청이 마감되었습니다.', 'err');
+        $('submitBtn').disabled = false;
+        $('submitBtn').textContent = '신청하기';
+        return;
+      }
+
+      // 중복 신청 확인 (같은 학번) - 학번을 키로 직접 조회
+      const dupSnap = await db.ref('applications/' + sid).get();
+      if (dupSnap.exists()) {
+        const existing = dupSnap.val();
+        // 이미 신청한 경우: 완료 화면으로
+        showDone(existing.order, sid, name, true);
+        return;
+      }
+
+      // 신청 순번 계산 (트랜잭션으로 안전하게)
+      const orderRef = db.ref('meta/applyCount');
+      const result = await orderRef.transaction((cur) => (cur || 0) + 1);
+      const order = result.snapshot.val();
+
+      // 신청 저장
+      const appData = {
+        sid: sid,
+        name: name,
+        cls: classFromStudentId(sid),
+        order: order,
+        appliedAt: firebase.database.ServerValue.TIMESTAMP,
+        status: 'waiting'  // waiting → confirmed / rejected
+      };
+      await db.ref('applications/' + sid).set(appData);
+
+      showDone(order, sid, name, false);
+
+    } catch (e) {
+      console.error(e);
+      showMsg('신청 중 오류가 발생했습니다. 다시 시도해 주세요.', 'err');
+      $('submitBtn').disabled = false;
+      $('submitBtn').textContent = '신청하기';
+    }
+  }
+
+  function showDone(order, sid, name, already) {
+    $('form').style.display = 'none';
+    $('done').classList.add('show');
+    $('doneNum').innerHTML = order + '<small>번</small>';
+    const label = classNoFromStudentId(sid);
+    $('doneInfo').innerHTML =
+      (already ? '이미 신청하셨습니다.<br>' : '') +
+      name + ' · 2학년 ' + label;
+  }
+</script>
+</body>
+</html>

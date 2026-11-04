@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>자리 배정 · 가보자 서울대!</title>
+<link rel="manifest" href="manifest-admin.json">
+<meta name="theme-color" content="#12141C">
+<link rel="apple-touch-icon" href="icon-admin-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="순공 관리">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  :root {
+    --bg: #12141C; --card: #1E212D; --card2: #1A1C26; --line: #2E3242;
+    --blue: #2E466A; --blue-t: #7FB0FF; --text: #E4E4EC; --text-dim: #8A8A9A; --text-mute: #5A5A6A;
+    --seat-empty-bd: #3A6EA0; --seat-filled-bg: #1E2A22; --seat-filled-bd: #2E5A48; --seat-filled-t: #8FE0B8;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    background: var(--bg); color: var(--text); min-height: 100vh; padding: 16px;
+  }
+  .wrap { max-width: 520px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .top h1 { font-size: 18px; font-weight: 700; }
+  .top .count { font-size: 12px; color: var(--text-dim); }
+  .back { font-size: 12px; color: var(--blue-t); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; cursor: pointer; text-decoration: none; }
+
+  /* 미배정 학생 칩 */
+  .pool { background: var(--card2); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 16px; }
+  .pool .hd { font-size: 11px; color: var(--text-dim); margin-bottom: 9px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    font-size: 12px; background: #22252F; color: #C4C4D0; border: 1px solid var(--line);
+    border-radius: 16px; padding: 6px 12px; cursor: pointer;
+  }
+  .chip .sid { opacity: 0.6; margin-left: 2px; }
+  .chip.sel { background: var(--blue); color: #CFE0FF; border-color: #4A6EA0; }
+  .chip:active { opacity: 0.7; }
+  .pool .empty { font-size: 12px; color: var(--text-mute); }
+
+  .guide { font-size: 11px; color: var(--blue-t); margin-bottom: 10px; min-height: 15px; }
+
+  /* 실 탭 */
+  .room-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+  .rtab { flex: 1; font-size: 12px; background: var(--card); color: var(--text-dim); border: 1px solid var(--line); border-radius: 8px; padding: 8px; cursor: pointer; }
+  .rtab.active { background: var(--blue); color: #CFE0FF; border-color: var(--blue); }
+
+  /* 좌석표 */
+  .room { background: #14141F; border-radius: 12px; padding: 14px; }
+  .room .rhd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .room .rhd .nm { font-size: 14px; font-weight: 600; }
+  .room .rhd .st { font-size: 11px; color: var(--text-dim); }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .seat {
+    aspect-ratio: 1.1; border-radius: 7px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 1px; cursor: pointer; padding: 2px;
+  }
+  .seat .no { font-size: 8px; }
+  .seat .nm { font-size: 10px; line-height: 1.1; text-align: center; word-break: keep-all; }
+  .seat .sid { font-size: 8px; }
+  .seat.empty { background: var(--card2); border: 1px dashed var(--seat-empty-bd); }
+  .seat.empty .no { color: #5A7EB0; font-size: 10px; }
+  .seat.empty.pickable { border-color: var(--blue-t); background: #182238; }
+  .seat.filled { background: var(--seat-filled-bg); border: 1px solid var(--seat-filled-bd); }
+  .seat.filled .no { color: #5A9A7A; }
+  .seat.filled .nm { color: #B8E8D0; }
+  .seat.filled .sid { color: #5A8A72; }
+  .seat:active { opacity: 0.7; }
+
+  .loading { text-align: center; color: var(--text-dim); padding: 40px; }
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #2A2A3D; color: #fff; font-size: 13px; padding: 12px 20px; border-radius: 10px; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 100; }
+  .toast.show { opacity: 1; }
+
+  /* 자리 비우기 모달 */
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 200; padding: 20px; }
+  .modal-bg.show { display: flex; }
+  .modal { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 22px; max-width: 320px; width: 100%; text-align: center; }
+  .modal .who { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+  .modal .seat-lbl { font-size: 13px; color: var(--text-dim); margin-bottom: 20px; }
+  .modal .btns { display: flex; gap: 8px; }
+  .modal button { flex: 1; padding: 12px; border-radius: 10px; font-size: 14px; cursor: pointer; border: none; }
+  .modal .cancel { background: var(--card2); color: var(--text-dim); border: 1px solid var(--line); }
+  .modal .empty-btn { background: #2A1E22; color: #C97A8A; border: 1px solid #5A3A42; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <h1>자리 배정</h1>
+      <div class="count" id="count">배정 0 / 0</div>
+    </div>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <a class="back" href="admin-apply.html">← 신청</a>
+      <a class="back" href="admin.html">메뉴</a>
+    </div>
+  </div>
+
+  <div class="pool">
+    <div class="hd" id="poolHd">미배정 학생 · 0명 (탭해서 선택)</div>
+    <div class="chips" id="chips"></div>
+  </div>
+
+  <div class="guide" id="guide"></div>
+
+  <div class="room-tabs">
+    <button class="rtab active" data-r="2" onclick="setRoom(2)">2실</button>
+    <button class="rtab" data-r="3" onclick="setRoom(3)">3실</button>
+    <button class="rtab" data-r="4" onclick="setRoom(4)">4실</button>
+  </div>
+
+  <div id="loading" class="loading">불러오는 중...</div>
+  <div id="roomView"></div>
+</div>
+
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <div class="who" id="modalWho"></div>
+    <div class="seat-lbl" id="modalSeat"></div>
+    <div class="btns">
+      <button class="cancel" onclick="closeModal()">취소</button>
+      <button class="empty-btn" onclick="confirmEmpty()">자리 비우기</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const CAPACITY = 60;
+  let confirmed = [];   // 확정 학생 목록 (students 노드)
+  let curRoom = 2;
+  let selectedSid = null;   // 선택된 미배정 학생
+  let emptyTarget = null;   // 자리 비우기 대상
+
+  // 좌석 생성
+  function roomSeats(room) {
+    const start = (room - 2) * 20 + 1;
+    const seats = [];
+    for (let col = 0; col < 4; col++)
+      for (let row = 0; row < 5; row++)
+        seats.push({ code: room + '-' + (start + col*5 + row), num: start + col*5 + row, row, col });
+    return seats;
+  }
+
+  // 좌석표 틀을 먼저 그려서 빠르게 보이게 (데이터 없이)
+  $('loading').style.display = 'none';
+  renderRoom();
+
+  // 확정 학생 로드: 실시간 구독(on)
+  db.goOnline();
+  db.ref('students').on('value', (snap) => {
+    confirmed = [];
+    snap.forEach((child) => { confirmed.push(child.val()); });
+    $('loading').style.display = 'none';
+    renderPool();
+    renderRoom();
+  });
+
+  function setRoom(r) {
+    curRoom = r;
+    document.querySelectorAll('.rtab').forEach(b => b.classList.toggle('active', +b.dataset.r === r));
+    renderRoom();
+  }
+
+  function renderPool() {
+    const unassigned = confirmed.filter(s => !s.seat);
+    const assigned = confirmed.filter(s => s.seat);
+    $('count').textContent = `배정 ${assigned.length} / ${confirmed.length}`;
+    $('poolHd').textContent = `미배정 학생 · ${unassigned.length}명 (탭해서 선택)`;
+
+    const chips = $('chips');
+    if (unassigned.length === 0) {
+      chips.innerHTML = '<div class="empty">모든 학생이 배정되었습니다.</div>';
+      return;
+    }
+    // 학번순 정렬
+    unassigned.sort((a,b) => a.sid.localeCompare(b.sid));
+    chips.innerHTML = unassigned.map(s =>
+      `<span class="chip ${s.sid === selectedSid ? 'sel' : ''}" onclick="selectStudent('${s.sid}')">${esc(s.name)}<span class="sid">${s.sid}</span></span>`
+    ).join('');
+  }
+
+  function selectStudent(sid) {
+    selectedSid = (selectedSid === sid) ? null : sid;
+    const s = confirmed.find(x => x.sid === sid);
+    $('guide').textContent = selectedSid ? `▸ ${s.name} 선택됨 · 빈자리를 탭하세요` : '';
+    renderPool();
+    renderRoom();
+  }
+
+  function renderRoom() {
+    const seats = roomSeats(curRoom);
+    const filledCount = seats.filter(st => confirmed.find(s => s.seat === st.code)).length;
+    let html = `<div class="room"><div class="rhd"><span class="nm">${curRoom}실</span><span class="st">칠판 ↑ · ${filledCount}/20</span></div><div class="grid">`;
+    seats.forEach(st => {
+      const student = confirmed.find(s => s.seat === st.code);
+      if (student) {
+        html += `<div class="seat filled" onclick="askEmpty('${st.code}')">
+          <span class="no">${st.num}번</span>
+          <span class="nm">${esc(student.name)}</span>
+          <span class="sid">${student.sid}</span></div>`;
+      } else {
+        const pickable = selectedSid ? 'pickable' : '';
+        html += `<div class="seat empty ${pickable}" onclick="assignSeat('${st.code}')">
+          <span class="no">${st.num}번</span></div>`;
+      }
+    });
+    html += '</div></div>';
+    $('roomView').innerHTML = html;
+  }
+
+  // 빈자리에 선택 학생 배정
+  function assignSeat(code) {
+    if (!selectedSid) { toast('먼저 위에서 학생을 선택하세요'); return; }
+    const sid = selectedSid;
+    db.ref('students/' + sid + '/seat').set(code).then(() => {
+      const s = confirmed.find(x => x.sid === sid);
+      toast(`${s.name} → ${seatLabel(code)} 배정`);
+      selectedSid = null;
+      $('guide').textContent = '';
+    });
+  }
+
+  // 자리 비우기 모달
+  function askEmpty(code) {
+    const student = confirmed.find(s => s.seat === code);
+    if (!student) return;
+    emptyTarget = { sid: student.sid, code, name: student.name };
+    $('modalWho').textContent = student.name + ' (' + student.sid + ')';
+    $('modalSeat').textContent = seatLabel(code) + ' 자리를 비울까요?';
+    $('modal').classList.add('show');
+  }
+  function closeModal() { $('modal').classList.remove('show'); emptyTarget = null; }
+  function confirmEmpty() {
+    if (!emptyTarget) return;
+    db.ref('students/' + emptyTarget.sid + '/seat').remove().then(() => {
+      toast(emptyTarget.name + ' 자리를 비웠습니다');
+      closeModal();
+    });
+  }
+
+  function esc(s) { return String(s).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])); }
+  let toastTimer;
+  function toast(msg) {
+    const t = $('toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+  }
+</script>
+</body>
+</html>

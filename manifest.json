@@ -1,0 +1,13 @@
+{
+  "name": "가보자 서울대!",
+  "short_name": "가보자 서울대",
+  "description": "순공 프로그램 - 순수 공부 시간 측정",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#0A0A14",
+  "theme_color": "#0A0A14",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

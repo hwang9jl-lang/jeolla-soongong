@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>순공 · 가보자 서울대!</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0A0A14">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="가보자 서울대!">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  :root {
+    --bg: #0A0A14; --card: #12121F; --card2: #1A1C26; --line: #2A2A45;
+    --purple: #B14BFF; --purple-d: #12082E; --cyan: #00E5FF; --pink: #FF3D8B;
+    --text: #F0F0F5; --text-dim: #8A8A9A; --text-mute: #5A5A6A;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    background: var(--bg); color: var(--text); min-height: 100vh;
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  .wrap { width: 100%; max-width: 400px; }
+  .card { background: var(--card); border-radius: 20px; padding: 22px; }
+
+  /* 상단 헤더 */
+  .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .head .seat-info .lbl { font-size: 11px; color: var(--cyan); letter-spacing: 2px; }
+  .head .seat-info .val { font-size: 18px; font-weight: 700; }
+  .badge { font-size: 12px; border-radius: 20px; padding: 5px 12px; }
+  .badge.wait { color: var(--text-dim); background: #12121F; border: 1px solid var(--line); }
+  .badge.study { color: #5DCAA5; background: #04141A; border: 1px solid #0F6E56; }
+
+  h2 { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+  .desc { font-size: 13px; color: var(--text-dim); line-height: 1.5; margin-bottom: 18px; }
+
+  label { display: block; font-size: 12px; color: var(--text-dim); letter-spacing: 1px; margin: 16px 0 8px; }
+  label:first-of-type { margin-top: 0; }
+  input {
+    width: 100%; background: var(--card2); border: 1px solid var(--line); border-radius: 12px;
+    padding: 14px 16px; font-size: 16px; color: var(--text); outline: none;
+  }
+  input:focus { border-color: var(--purple); }
+  input::placeholder { color: var(--text-mute); }
+
+  .btn {
+    width: 100%; margin-top: 20px; padding: 16px; border: none; border-radius: 14px;
+    font-size: 16px; font-weight: 700; letter-spacing: 1px; cursor: pointer; transition: transform 0.1s;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn:disabled { opacity: 0.5; }
+  .btn-purple { background: linear-gradient(135deg, #B14BFF, #8A2BE2); color: #fff; box-shadow: 0 0 20px rgba(177,75,255,0.4); }
+  .btn-cyan { background: linear-gradient(135deg, #00E5FF, #00B8CC); color: #04141A; box-shadow: 0 0 20px rgba(0,229,255,0.5); }
+  .btn-pink { background: #1A0A16; border: 1.5px solid var(--pink); color: #FF6BA5; box-shadow: 0 0 16px rgba(255,61,139,0.3); }
+  .btn-amber { background: linear-gradient(135deg, #E4A76F, #C2823E); color: #241D08; box-shadow: 0 0 20px rgba(228,167,111,0.4); }
+  .btn-ghost { background: transparent; border: 1px solid #3A3560; color: #A79FFF; font-weight: 500; font-size: 14px; margin-top: 10px; }
+
+  .msg { margin-top: 14px; padding: 11px 14px; border-radius: 10px; font-size: 13px; text-align: center; display: none; line-height: 1.5; }
+  .msg.err { display: block; background: #2A1418; border: 1px solid #5A2E38; color: #FF8BA5; }
+  .msg.ok { display: block; background: #12082E; border: 1px solid var(--purple); color: #D89BFF; }
+
+  /* 코드 입력칸 */
+  .code-title { text-align: center; font-size: 13px; color: #A79FFF; letter-spacing: 1px; margin-bottom: 14px; }
+  .code-boxes { display: flex; gap: 9px; justify-content: center; margin-bottom: 18px; }
+  .code-box {
+    width: 50px; height: 60px; border-radius: 11px; display: flex; align-items: center; justify-content: center;
+    font-size: 28px; font-weight: 700; background: #12121F; border: 1.5px solid #3A3560; color: var(--text-mute);
+  }
+  .code-box.filled { background: var(--purple-d); border-color: var(--purple); color: #fff; box-shadow: 0 0 12px rgba(177,75,255,0.4); text-shadow: 0 0 10px var(--purple); }
+  .code-box.active { border-color: var(--cyan); }
+
+  /* 키패드 */
+  .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 6px; }
+  .key { padding: 15px; background: #161622; border: 1px solid var(--line); border-radius: 12px; color: var(--text); font-size: 22px; font-weight: 600; cursor: pointer; transition: background 0.1s; }
+  .key:active { background: #22222E; }
+  .key.fn { background: #0F0F18; color: var(--text-dim); font-size: 13px; }
+
+  /* 타이머 */
+  .timer-card {
+    background: #04141A; border: 1.5px solid var(--cyan); border-radius: 18px; padding: 28px 16px;
+    text-align: center; margin-bottom: 16px; box-shadow: 0 0 24px rgba(0,229,255,0.3), inset 0 0 30px rgba(0,229,255,0.08);
+  }
+  .timer-card .st { font-size: 12px; color: var(--cyan); letter-spacing: 4px; margin-bottom: 12px; }
+  .timer-card .time { font-size: 48px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; text-shadow: 0 0 8px #7FF0FF, 0 0 24px var(--cyan); }
+  .timer-card .sub { font-size: 12px; color: #4A8A94; margin-top: 14px; }
+
+  .stats { display: flex; gap: 10px; margin-top: 16px; }
+  .stat { flex: 1; background: var(--card2); border: 1px solid var(--line); border-radius: 12px; padding: 14px; text-align: center; }
+  .stat .l { font-size: 11px; margin-bottom: 6px; }
+  .stat .v { font-size: 18px; font-weight: 700; }
+  .stat.rank .l { color: #8A6FC7; } .stat.rank .v { color: #D89BFF; }
+  .stat.today .l { color: #5DCAA5; } .stat.today .v { color: #7FE8C4; }
+
+  .note { text-align: center; font-size: 11px; color: var(--text-mute); margin-top: 14px; }
+  .loading { text-align: center; padding: 40px; color: var(--text-dim); }
+  .logo-mini { text-align: center; margin-bottom: 20px; }
+  .logo-mini .t { font-size: 20px; font-weight: 800; text-shadow: 0 0 16px rgba(177,75,255,0.5); }
+  .logo-mini .s { font-size: 11px; color: var(--purple); letter-spacing: 3px; margin-top: 4px; }
+  section { display: none; }
+  section.active { display: block; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <div id="loading" class="loading">불러오는 중...</div>
+
+    <!-- 좌석 오류 -->
+    <section id="secError">
+      <div class="logo-mini"><div class="t">가보자 서울대!</div></div>
+      <h2 style="text-align:center;">잘못된 접근</h2>
+      <div class="desc" style="text-align:center;" id="errText">좌석 정보를 확인할 수 없습니다.</div>
+    </section>
+
+    <!-- 로그인 (본인 확인) -->
+    <section id="secLogin">
+      <div class="head">
+        <div class="seat-info"><div class="lbl">▸ 이 자리</div><div class="val" id="loginSeat">—</div></div>
+      </div>
+      <h2>본인 확인</h2>
+      <div class="desc">이 자리에 배정된 학생만 사용할 수 있습니다.</div>
+      <label>학번</label>
+      <input id="loginSid" type="tel" inputmode="numeric" maxlength="5" placeholder="학번 5자리">
+      <div id="loginMsg" class="msg"></div>
+      <button class="btn btn-purple" onclick="checkStudent()">다음</button>
+    </section>
+
+    <!-- PIN 설정 (첫 접속) -->
+    <section id="secSetPin">
+      <div class="head">
+        <div class="seat-info"><div class="lbl">▸ 이 자리</div><div class="val" id="pinSetSeat">—</div></div>
+      </div>
+      <h2 id="pinSetHi">환영합니다</h2>
+      <div class="desc">처음이시네요. 앞으로 사용할 나만의 PIN(4자리 숫자)을 정해주세요.</div>
+      <div class="code-title" id="pinSetStep">PIN 4자리를 입력하세요</div>
+      <div class="code-boxes" id="pinSetBoxes"></div>
+      <div id="pinSetMsg" class="msg"></div>
+    </section>
+
+    <!-- PIN 입력 (로그인) -->
+    <section id="secPin">
+      <div class="head">
+        <div class="seat-info"><div class="lbl">▸ 이 자리</div><div class="val" id="pinSeat">—</div></div>
+      </div>
+      <h2 id="pinHi">—</h2>
+      <div class="desc">본인 PIN 4자리를 입력하세요.</div>
+      <div class="code-boxes" id="pinBoxes"></div>
+      <div id="pinMsg" class="msg"></div>
+      <div class="keypad" id="pinKeypad"></div>
+    </section>
+
+    <!-- 대기: 코드 입력 후 시작 -->
+    <section id="secStart">
+      <div class="head">
+        <div class="seat-info"><div class="lbl">▸ 이 자리</div><div class="val" id="startSeat">—</div></div>
+        <div class="badge wait">○ 대기 중</div>
+      </div>
+      <div class="code-title">칠판의 오늘의 코드 4자리</div>
+      <div class="code-boxes" id="startBoxes"></div>
+      <div class="keypad" id="startKeypad"></div>
+      <div id="startMsg" class="msg"></div>
+      <button class="btn btn-cyan" onclick="startStudy()">순공 시작 ▶</button>
+      <button class="btn btn-ghost" onclick="goRank()">🏆 랭킹 보기</button>
+      <div class="note">인정 시간 07:00 ~ 22:00</div>
+    </section>
+
+    <!-- 순공 중 -->
+    <section id="secStudy">
+      <div class="head">
+        <div class="seat-info"><div class="lbl">▸ 이 자리</div><div class="val" id="studySeat">—</div></div>
+        <div class="badge study">● 순공 중</div>
+      </div>
+      <div class="timer-card">
+        <div class="st">진행 중</div>
+        <div class="time" id="timerDisplay">00:00:00</div>
+        <div class="sub" id="timerSub">—</div>
+      </div>
+      <button class="btn btn-amber" onclick="pauseStudy()">⏸ 잠시 멈춤 (점심·저녁)</button>
+      <button class="btn btn-pink" onclick="endStudy()" style="margin-top:10px;">순공 종료</button>
+      <div class="stats">
+        <div class="stat rank"><div class="l">누적 순위</div><div class="v" id="studyRank">—</div></div>
+        <div class="stat today"><div class="l">오늘 순공</div><div class="v" id="studyToday">—</div></div>
+      </div>
+      <div class="note">잠깐 나갈 땐 '잠시 멈춤', 집에 갈 땐 '순공 종료'를 누르세요.<br>화면을 꺼도 시간은 정확히 기록됩니다.</div>
+    </section>
+
+    <!-- 일시정지 중 화면 -->
+    <section id="secPaused">
+      <div class="head">
+        <div class="seat-info"><div class="lbl">▸ 이 자리</div><div class="val" id="pausedSeat">—</div></div>
+        <div class="badge" style="color:#E4A76F;background:#241D08;border:1px solid #5A4A2A;">⏸ 멈춤</div>
+      </div>
+      <div class="timer-card" style="border-color:#E4A76F;box-shadow:0 0 24px rgba(228,167,111,0.25),inset 0 0 30px rgba(228,167,111,0.06);">
+        <div class="st" style="color:#E4A76F;">일시정지됨</div>
+        <div class="time" id="pausedDisplay" style="color:#F0C89A;text-shadow:0 0 8px #E4A76F;">00:00:00</div>
+        <div class="sub" id="pausedSub">지금까지 공부한 시간</div>
+      </div>
+      <button class="btn btn-cyan" onclick="resumeStudy()">▶ 다시 시작</button>
+      <button class="btn btn-pink" onclick="endStudy()" style="margin-top:10px;">순공 종료</button>
+      <div class="note">돌아왔으면 '다시 시작', 집에 갈 땐 '순공 종료'를 누르세요.</div>
+    </section>
+
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const START_HOUR = 7, END_HOUR = 22;
+
+  // URL에서 좌석 코드 읽기: seat.html?s=2-7
+  const params = new URLSearchParams(location.search);
+  const seatCode = params.get('s');
+
+  let seatStudent = null;   // 이 좌석에 배정된 학생
+  let curStudent = null;    // 로그인 성공한 학생
+  let curRec = null;        // 현재 순공 기록
+  let timerInterval = null;
+
+  function show(id) {
+    document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
+    $(id).classList.add('active');
+  }
+
+  // 초기화: 좌석 유효성 확인
+  init();
+  async function init() {
+    if (!seatCode || !/^[234]-\d+$/.test(seatCode)) {
+      $('loading').style.display = 'none';
+      $('errText').textContent = '좌석 정보가 올바르지 않습니다. QR을 다시 찍어주세요.';
+      show('secError');
+      return;
+    }
+    // 이 좌석에 배정된 학생 찾기 (전체 조회 후 필터, 60명이라 부담 없음)
+    const snap = await db.ref('students').get();
+    $('loading').style.display = 'none';
+    let found = null;
+    if (snap.exists()) {
+      snap.forEach(c => { const v = c.val(); if (v.seat === seatCode) found = v; });
+    }
+    if (!found) {
+      $('errText').textContent = seatLabel(seatCode) + '은 아직 배정된 학생이 없습니다.';
+      show('secError');
+      return;
+    }
+    seatStudent = found;
+
+    // 좌석 라벨 표시
+    ['loginSeat','pinSetSeat','pinSeat','startSeat','studySeat'].forEach(id => $(id).textContent = seatLabel(seatCode));
+
+    // 오늘 이 학생의 순공 상태 확인
+    const todayRec = await db.ref('records/' + todayKey() + '/' + seatStudent.sid).get();
+    if (todayRec.exists()) {
+      const rec = todayRec.val();
+      if (rec.status === 'ongoing') {
+        // 순공 중 → 순공 화면으로 (일시정지/종료 선택 가능)
+        curStudent = seatStudent;
+        goStudy(rec);
+        return;
+      }
+      if (rec.status === 'paused') {
+        // 일시정지 중 → 일시정지 화면으로 (재개/종료 선택 가능)
+        curStudent = seatStudent;
+        goPaused(rec);
+        return;
+      }
+    }
+
+    // 로그인 화면으로
+    show('secLogin');
+    setTimeout(() => $('loginSid').focus(), 100);
+  }
+
+  // 학번 확인
+  function checkStudent() {
+    const sid = $('loginSid').value.trim();
+    if (sid !== seatStudent.sid) {
+      showMsg('loginMsg', '이 자리에 배정된 학번이 아닙니다.', 'err');
+      return;
+    }
+    curStudent = seatStudent;
+    // PIN 있으면 PIN 입력, 없으면 PIN 설정
+    if (seatStudent.pin) {
+      $('pinHi').textContent = seatStudent.name + '님';
+      show('secPin');
+      buildPin();
+    } else {
+      $('pinSetHi').textContent = seatStudent.name + '님, 환영합니다';
+      show('secSetPin');
+      buildSetPin();
+    }
+  }
+
+  // ===== PIN 설정 (첫 접속) =====
+  let setPinVal = '', setPinConfirm = '', setPinStage = 1;
+  function buildSetPin() {
+    setPinVal = ''; setPinConfirm = ''; setPinStage = 1;
+    renderCodeBoxes('pinSetBoxes', '', 4);
+    $('pinSetStep').textContent = 'PIN 4자리를 입력하세요';
+    // 키패드는 pinSet 전용으로 재사용: 여기선 간단히 별도 키패드 안 만들고
+    // secSetPin에도 키패드 붙이기
+    if (!$('pinSetKeypad')) {
+      const kp = document.createElement('div');
+      kp.className = 'keypad'; kp.id = 'pinSetKeypad';
+      $('secSetPin').appendChild(kp);
+    }
+    buildKeypad('pinSetKeypad', onSetPinKey);
+  }
+  function onSetPinKey(k) {
+    let cur = setPinStage === 1 ? setPinVal : setPinConfirm;
+    if (k === 'del') cur = cur.slice(0, -1);
+    else if (k === 'clear') cur = '';
+    else if (cur.length < 4) cur += k;
+
+    if (setPinStage === 1) setPinVal = cur; else setPinConfirm = cur;
+    renderCodeBoxes('pinSetBoxes', cur, 4);
+
+    if (setPinStage === 1 && setPinVal.length === 4) {
+      setTimeout(() => {
+        setPinStage = 2;
+        $('pinSetStep').textContent = '확인을 위해 한 번 더 입력하세요';
+        renderCodeBoxes('pinSetBoxes', '', 4);
+      }, 200);
+    } else if (setPinStage === 2 && setPinConfirm.length === 4) {
+      if (setPinConfirm === setPinVal) {
+        savePin(setPinVal);
+      } else {
+        showMsg('pinSetMsg', 'PIN이 일치하지 않습니다. 다시 시도하세요.', 'err');
+        buildSetPin();
+      }
+    }
+  }
+  async function savePin(pin) {
+    await db.ref('students/' + curStudent.sid + '/pin').set(pin);
+    curStudent.pin = pin;
+    seatStudent.pin = pin;
+    goStart();
+  }
+
+  // ===== PIN 입력 (로그인) =====
+  let pinVal = '';
+  function buildPin() {
+    pinVal = '';
+    renderCodeBoxes('pinBoxes', '', 4);
+    buildKeypad('pinKeypad', onPinKey);
+  }
+  function onPinKey(k) {
+    if (k === 'del') pinVal = pinVal.slice(0, -1);
+    else if (k === 'clear') pinVal = '';
+    else if (pinVal.length < 4) pinVal += k;
+    renderCodeBoxes('pinBoxes', pinVal, 4);
+    if (pinVal.length === 4) {
+      if (pinVal === curStudent.pin) {
+        goStart();
+      } else {
+        showMsg('pinMsg', 'PIN이 올바르지 않습니다.', 'err');
+        setTimeout(() => { pinVal = ''; renderCodeBoxes('pinBoxes', '', 4); $('pinMsg').className = 'msg'; }, 800);
+      }
+    }
+  }
+
+  // ===== 시작 화면 (오늘 코드 입력) =====
+  let codeVal = '';
+  function goStart() {
+    show('secStart');
+    codeVal = '';
+    renderCodeBoxes('startBoxes', '', 4);
+    buildKeypad('startKeypad', onCodeKey);
+  }
+  function onCodeKey(k) {
+    if (k === 'del') codeVal = codeVal.slice(0, -1);
+    else if (k === 'clear') codeVal = '';
+    else if (codeVal.length < 4) codeVal += k;
+    renderCodeBoxes('startBoxes', codeVal, 4);
+    $('startMsg').className = 'msg';
+  }
+
+  async function startStudy() {
+    // 시간대 확인
+    const now = new Date();
+    const h = now.getHours();
+    if (h < START_HOUR || h >= END_HOUR) {
+      showMsg('startMsg', '순공 인정 시간(07:00~22:00)이 아닙니다.', 'err');
+      return;
+    }
+    if (codeVal.length !== 4) {
+      showMsg('startMsg', '오늘의 코드 4자리를 입력하세요.', 'err');
+      return;
+    }
+    // 오늘 코드 확인
+    const codeSnap = await db.ref('dailyCode/' + todayKey()).get();
+    const todayCode = codeSnap.val();
+    if (!todayCode) {
+      showMsg('startMsg', '오늘의 코드가 아직 생성되지 않았습니다. 선생님께 문의하세요.', 'err');
+      return;
+    }
+    if (codeVal !== String(todayCode)) {
+      showMsg('startMsg', '코드가 올바르지 않습니다. 칠판을 확인하세요.', 'err');
+      codeVal = ''; renderCodeBoxes('startBoxes', '', 4);
+      return;
+    }
+    // 오늘 이미 순공한 기록이 있으면 그 시간을 보존 (하루 여러 번 순공 대응)
+    const prevRec = (await db.ref('records/' + todayKey() + '/' + curStudent.sid).get()).val();
+    let prevSec = 0;
+    if (prevRec && prevRec.status === 'done' && prevRec.durationSec) {
+      prevSec = prevRec.durationSec;
+    } else if (prevRec && prevRec.prevSec) {
+      prevSec = prevRec.prevSec;
+    }
+
+    // 기록 시작 (accumSec: 지금까지 공부한 시간, segStart: 현재 구간 시작)
+    const rec = {
+      sid: curStudent.sid,
+      name: curStudent.name,
+      seat: seatCode,
+      startAt: firebase.database.ServerValue.TIMESTAMP,
+      segStart: firebase.database.ServerValue.TIMESTAMP,
+      accumSec: 0,
+      status: 'ongoing',
+      prevSec: prevSec
+    };
+    await db.ref('records/' + todayKey() + '/' + curStudent.sid).set(rec);
+    // 방금 저장된 걸 다시 읽어 서버 시각 확보
+    const saved = (await db.ref('records/' + todayKey() + '/' + curStudent.sid).get()).val();
+    goStudy(saved);
+  }
+
+  // ===== 순공 중 화면 =====
+  function goStudy(rec) {
+    show('secStudy');
+    curRec = rec;
+    const accumSec = rec.accumSec || 0;
+    const segStart = rec.segStart || rec.startAt;
+    // 시작 시각 표시
+    const sd = new Date(rec.startAt);
+    const startStr = String(sd.getHours()).padStart(2,'0') + ':' + String(sd.getMinutes()).padStart(2,'0');
+    $('timerSub').textContent = startStr + ' 시작';
+    loadStudyStats();
+    // 타이머: accumSec + (현재 구간 경과)
+    if (timerInterval) clearInterval(timerInterval);
+    const tick = () => {
+      const segElapsed = Math.floor((Date.now() - segStart) / 1000);
+      $('timerDisplay').textContent = fmtTimer(accumSec + segElapsed);
+    };
+    timerInterval = setInterval(tick, 1000);
+    tick();
+  }
+
+  // ===== 일시정지 =====
+  async function pauseStudy() {
+    if (timerInterval) clearInterval(timerInterval);
+    const rec = curRec;
+    const segStart = rec.segStart || rec.startAt;
+    const segElapsed = Math.floor((Date.now() - segStart) / 1000);
+    const newAccum = (rec.accumSec || 0) + (segElapsed > 0 ? segElapsed : 0);
+    const updates = {};
+    updates['records/' + todayKey() + '/' + curStudent.sid + '/accumSec'] = newAccum;
+    updates['records/' + todayKey() + '/' + curStudent.sid + '/status'] = 'paused';
+    updates['records/' + todayKey() + '/' + curStudent.sid + '/pausedAt'] = firebase.database.ServerValue.TIMESTAMP;
+    await db.ref().update(updates);
+    const saved = (await db.ref('records/' + todayKey() + '/' + curStudent.sid).get()).val();
+    goPaused(saved);
+  }
+
+  // ===== 일시정지 화면 =====
+  function goPaused(rec) {
+    show('secPaused');
+    curRec = rec;
+    if (timerInterval) clearInterval(timerInterval);
+    $('pausedSeat').textContent = seatLabel(seatCode);
+    $('pausedDisplay').textContent = fmtTimer(rec.accumSec || 0);
+  }
+
+  // ===== 다시 시작 (재개) =====
+  async function resumeStudy() {
+    const updates = {};
+    updates['records/' + todayKey() + '/' + curStudent.sid + '/segStart'] = firebase.database.ServerValue.TIMESTAMP;
+    updates['records/' + todayKey() + '/' + curStudent.sid + '/status'] = 'ongoing';
+    updates['records/' + todayKey() + '/' + curStudent.sid + '/pausedAt'] = null;
+    await db.ref().update(updates);
+    const saved = (await db.ref('records/' + todayKey() + '/' + curStudent.sid).get()).val();
+    goStudy(saved);
+  }
+
+  async function loadStudyStats() {
+    // 누적 순위 계산
+    const rank = await calcRank(curStudent.sid);
+    $('studyRank').textContent = rank ? rank + '위' : '—';
+    $('studyToday').textContent = fmtDuration(curStudent.totalSec || 0);
+  }
+
+  // ===== 종료 (좌석 재스캔 시 자동 호출) =====
+  async function endStudy() {
+    if (!curRec) { showToast('순공 정보를 찾을 수 없습니다.'); return; }
+    if (!confirm('순공을 종료할까요?\n종료하면 오늘 공부 시간이 기록됩니다.')) return;
+    await doEnd(curRec);
+  }
+
+  async function doEnd(rec) {
+    show('secStudy');
+    const now = Date.now();
+    const nowDate = new Date(now);
+
+    // 현재까지 실제 공부한 시간 = accumSec + (진행 중이면 현재 구간)
+    let studySec = rec.accumSec || 0;
+    if (rec.status === 'ongoing') {
+      const segStart = rec.segStart || rec.startAt;
+      const segElapsed = Math.floor((now - segStart) / 1000);
+      if (segElapsed > 0) studySec += segElapsed;
+    }
+    // 오늘 이전 순공 시간(오전 등)과 합산
+    const prevSec = rec.prevSec || 0;
+    const todayTotal = prevSec + studySec;
+
+    // 22시(END_HOUR)를 넘겨서 종료하면 무효 처리 (퇴실 안 한 벌칙)
+    const isLate = nowDate.getHours() >= END_HOUR;
+
+    if (isLate) {
+      const updates = {};
+      updates['records/' + todayKey() + '/' + curStudent.sid + '/endAt'] = firebase.database.ServerValue.TIMESTAMP;
+      updates['records/' + todayKey() + '/' + curStudent.sid + '/durationSec'] = 0;
+      updates['records/' + todayKey() + '/' + curStudent.sid + '/status'] = 'invalid';
+      await db.ref().update(updates);
+
+      // 무효 안내 화면
+      $('studySeat').textContent = seatLabel(seatCode);
+      document.querySelector('#secStudy .badge').outerHTML = '<div class="badge wait" style="color:#FF8BA5;border-color:#5A2E38;">무효 처리</div>';
+      const card = $('timerDisplay').parentElement;
+      card.style.borderColor = '#9A3A4A';
+      card.querySelector('.st').textContent = '⚠️ 무효 처리됨';
+      card.querySelector('.st').style.color = '#FF8BA5';
+      $('timerDisplay').textContent = '00:00:00';
+      $('timerDisplay').style.color = '#FF8BA5';
+      $('timerDisplay').style.textShadow = 'none';
+      $('timerSub').textContent = '밤 10시를 넘겨 퇴실 → 오늘 기록 미인정';
+      const btn = document.querySelector('#secStudy .btn-amber');
+      if (btn) btn.style.display = 'none';
+      const btn2 = document.querySelector('#secStudy .btn-pink');
+      btn2.className = 'btn btn-ghost'; btn2.textContent = '🏆 랭킹 보기'; btn2.onclick = goRank; btn2.style.marginTop = '0';
+      $('studyRank').textContent = '—';
+      $('studyToday').textContent = '0분';
+      document.querySelector('#secStudy .note').textContent = '순공 인정 시간(밤 10시)이 지나 오늘 기록은 무효입니다. 다음부터는 꼭 시간 내에 퇴실하세요.';
+      if (timerInterval) clearInterval(timerInterval);
+      return;
+    }
+
+    // 정상 종료
+    const updates = {};
+    updates['records/' + todayKey() + '/' + curStudent.sid + '/endAt'] = firebase.database.ServerValue.TIMESTAMP;
+    updates['records/' + todayKey() + '/' + curStudent.sid + '/durationSec'] = todayTotal;
+    updates['records/' + todayKey() + '/' + curStudent.sid + '/status'] = 'done';
+    await db.ref().update(updates);
+    // 누적엔 이번 순공분(studySec)만 더함 (오전분 prevSec는 이미 반영됨)
+    await db.ref('students/' + curStudent.sid + '/totalSec').transaction(v => (v || 0) + studySec);
+
+    if (timerInterval) clearInterval(timerInterval);
+
+    // 종료 완료 화면
+    $('studySeat').textContent = seatLabel(seatCode);
+    document.querySelector('#secStudy .badge').outerHTML = '<div class="badge wait">종료됨</div>';
+    $('timerDisplay').parentElement.querySelector('.st').textContent = '오늘 순공 완료';
+    $('timerDisplay').textContent = fmtTimer(todayTotal);
+    let subText = '오늘 순수 공부 시간';
+    if (prevSec > 0) subText += ` (이전 ${fmtDuration(prevSec)} 포함)`;
+    $('timerSub').textContent = subText;
+    // 버튼 정리
+    const amberBtn = document.querySelector('#secStudy .btn-amber');
+    if (amberBtn) amberBtn.style.display = 'none';
+    const btn = document.querySelector('#secStudy .btn-pink');
+    btn.className = 'btn btn-ghost'; btn.textContent = '🏆 랭킹 보기'; btn.onclick = goRank; btn.style.marginTop = '0';
+    // 스탯 갱신
+    const freshTotal = (curStudent.totalSec || 0) + studySec;
+    curStudent.totalSec = freshTotal;
+    $('studyToday').textContent = fmtDuration(todayTotal);
+    const rank = await calcRank(curStudent.sid);
+    $('studyRank').textContent = rank ? rank + '위' : '—';
+    document.querySelector('#secStudy .note').textContent = '수고했어요! 오늘 순공이 기록되었습니다.';
+  }
+
+  // ===== 랭킹 계산 =====
+  async function calcRank(sid) {
+    const snap = await db.ref('students').get();
+    if (!snap.exists()) return null;
+    const list = [];
+    snap.forEach(c => { const v = c.val(); list.push({ sid: v.sid, total: v.totalSec || 0 }); });
+    list.sort((a,b) => b.total - a.total);
+    const idx = list.findIndex(x => x.sid === sid);
+    return idx >= 0 ? idx + 1 : null;
+  }
+
+  function goRank() {
+    location.href = 'rank.html?sid=' + curStudent.sid;
+  }
+
+  // ===== 공통 UI 헬퍼 =====
+  function renderCodeBoxes(containerId, val, len) {
+    const c = $(containerId);
+    let html = '';
+    for (let i = 0; i < len; i++) {
+      const filled = i < val.length;
+      const active = i === val.length;
+      html += `<div class="code-box ${filled ? 'filled' : ''} ${active ? 'active' : ''}">${filled ? val[i] : ''}</div>`;
+    }
+    c.innerHTML = html;
+  }
+  function buildKeypad(containerId, handler) {
+    const c = $(containerId);
+    const keys = ['1','2','3','4','5','6','7','8','9','clear','0','del'];
+    c.innerHTML = keys.map(k => {
+      if (k === 'clear') return `<button class="key fn" data-k="clear">지움</button>`;
+      if (k === 'del') return `<button class="key fn" data-k="del">←</button>`;
+      return `<button class="key" data-k="${k}">${k}</button>`;
+    }).join('');
+    c.querySelectorAll('.key').forEach(b => b.onclick = () => handler(b.dataset.k));
+  }
+  function showMsg(id, text, type) { const m = $(id); m.textContent = text; m.className = 'msg ' + type; }
+  function p2(n) { return String(n).padStart(2, '0'); }
+
+  let toastEl;
+  function showToast(msg) {
+    if (!toastEl) {
+      toastEl = document.createElement('div');
+      toastEl.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#2A2A3D;color:#fff;font-size:13px;padding:12px 18px;border-radius:10px;z-index:100;max-width:90%;text-align:center;line-height:1.5;';
+      document.body.appendChild(toastEl);
+    }
+    toastEl.textContent = msg;
+    toastEl.style.opacity = '1';
+    setTimeout(() => { toastEl.style.opacity = '0'; }, 2500);
+  }
+</script>
+</body>
+</html>

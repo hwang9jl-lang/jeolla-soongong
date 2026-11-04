@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>주간 코드 · 가보자 서울대!</title>
+<link rel="manifest" href="manifest-admin.json">
+<meta name="theme-color" content="#12141C">
+<link rel="apple-touch-icon" href="icon-admin-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="순공 관리">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  :root { --bg: #161822; --card: #1E212D; --card2: #1A1C26; --line: #2E3242; --blue-t: #7FB0FF; --text: #E4E4EC; --text-dim: #8A8A9A; --text-mute: #5A5A6A; --violet: #C9B3FF; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 16px; }
+  .wrap { max-width: 520px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .top h1 { font-size: 18px; font-weight: 700; }
+  .back { font-size: 12px; color: var(--blue-t); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; text-decoration: none; }
+  .note { font-size: 12px; color: var(--text-dim); line-height: 1.5; margin-bottom: 16px; }
+  .note b { color: var(--violet); }
+
+  .loading { text-align: center; color: var(--text-dim); padding: 40px; }
+
+  .day { display: flex; align-items: center; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 8px; }
+  .day .date { flex: 1; }
+  .day .date .d { font-size: 15px; font-weight: 600; }
+  .day .date .dow { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+  .day .code { font-size: 26px; font-weight: 800; letter-spacing: 3px; font-variant-numeric: tabular-nums; color: #E4E4EC; }
+  .day .today-badge { font-size: 10px; font-weight: 700; color: #6FD6A8; background: #16281F; border: 1px solid #2E9A6E; border-radius: 6px; padding: 2px 7px; margin-left: 8px; }
+
+  .day.weekend { background: var(--card2); border-color: #24262E; }
+  .day.weekend .date .d, .day.weekend .code { color: var(--text-mute); }
+  .day.weekend .date .dow { color: #6A5A46; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>주간 코드</h1>
+    <a class="back" href="admin.html">← 메뉴</a>
+  </div>
+  <div class="note">오늘부터 <b>7일치</b> 코드입니다. 퇴근 전 칠판에 미리 적어두면, 다음 날 늦게 오셔도 학생들이 바로 시작할 수 있어요.<br>한 번 만든 코드는 <b>바뀌지 않습니다.</b> (당일 코드 재생성은 실시간 현황에서만)</div>
+
+  <div id="loading" class="loading">불러오는 중...</div>
+  <div id="list"></div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const DOW = ['일','월','화','수','목','금','토'];
+
+  function dateToKey(d) {
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+
+  init();
+  async function init() {
+    db.goOnline();
+    const snap = await db.ref('dailyCode').get();
+    const existing = snap.val() || {};
+    const [ty, tm, td] = todayKey().split('-').map(Number);  // 한국 오늘에서 출발 (seat.html과 동일 기준)
+    const days = [];
+    const writes = {};
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(ty, tm - 1, td + i);
+      const key = dateToKey(d);
+      let code = existing[key];
+      if (code === undefined || code === null) {
+        // 없는 날만 새로 생성 (있는 날은 절대 안 건드림)
+        code = String(Math.floor(1000 + Math.random() * 9000));
+        writes['dailyCode/' + key] = code;
+      }
+      days.push({ key, date: d, code: String(code), today: i === 0 });
+    }
+    if (Object.keys(writes).length) await db.ref().update(writes);
+    $('loading').style.display = 'none';
+    render(days);
+  }
+
+  function render(days) {
+    let html = '';
+    days.forEach(day => {
+      const dow = day.date.getDay();
+      const weekend = (dow === 0 || dow === 6);
+      html += `<div class="day ${weekend ? 'weekend' : ''}">
+        <div class="date">
+          <div class="d">${day.date.getMonth()+1}월 ${day.date.getDate()}일 (${DOW[dow]})${day.today ? '<span class="today-badge">오늘</span>' : ''}</div>
+          ${weekend ? '<div class="dow">순공 없음</div>' : ''}
+        </div>
+        <div class="code">${day.code}</div>
+      </div>`;
+    });
+    $('list').innerHTML = html;
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "순공 관리 (교사)",
+  "short_name": "순공 관리",
+  "description": "가보자 서울대! 순공 프로그램 - 교사 관리",
+  "start_url": "admin.html",
+  "display": "standalone",
+  "background_color": "#12141C",
+  "theme_color": "#12141C",
+  "icons": [
+    { "src": "icon-admin-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-admin-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>좌석 QR 인쇄 · 가보자 서울대!</title>
+<link rel="manifest" href="manifest-admin.json">
+<meta name="theme-color" content="#12141C">
+<link rel="apple-touch-icon" href="icon-admin-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="순공 관리">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root { --bg: #161822; --card: #1E212D; --line: #2E3242; --blue: #2E466A; --blue-t: #7FB0FF; --text: #E4E4EC; --text-dim: #8A8A9A; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; background: var(--bg); color: var(--text); padding: 16px; }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .top h1 { font-size: 18px; font-weight: 700; }
+  .back { font-size: 12px; color: var(--blue-t); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; text-decoration: none; }
+  .intro { font-size: 13px; color: var(--text-dim); line-height: 1.6; margin-bottom: 14px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  .controls { display: flex; gap: 8px; margin-bottom: 16px; }
+  .ctrl { flex: 1; font-size: 13px; background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 9px; padding: 10px; cursor: pointer; }
+  .ctrl.active { background: var(--blue); color: #CFE0FF; border-color: var(--blue); }
+  .print-btn { background: #16241E; color: #6FD6A8; border: 1px solid #2E5A48; }
+
+  .sheet { background: #fff; border-radius: 10px; padding: 20px; }
+  .qr-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .qr-item { border: 1.5px solid #222; border-radius: 8px; padding: 12px 8px; text-align: center; break-inside: avoid; }
+  .qr-item .seat-name { font-size: 15px; font-weight: 700; color: #111; margin-bottom: 8px; }
+  .qr-item canvas, .qr-item img { width: 100%; max-width: 120px; height: auto; }
+  .qr-item .hint { font-size: 10px; color: #666; margin-top: 6px; }
+  .loading { text-align: center; color: var(--text-dim); padding: 40px; }
+
+  @media print {
+    body { background: #fff; padding: 0; }
+    .top, .intro, .controls, .back { display: none; }
+    .sheet { border-radius: 0; padding: 0; }
+    .qr-grid { gap: 10px; }
+    .qr-item { border-color: #000; }
+    .room-section { page-break-after: always; }
+  }
+  .room-title { font-size: 20px; font-weight: 700; color: #111; margin: 8px 0 14px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>좌석 QR 인쇄</h1>
+    <a class="back" href="admin.html">← 메뉴</a>
+  </div>
+
+  <div class="intro">
+    각 좌석의 QR을 인쇄해서 해당 책상에 붙여주세요. 학생이 이 QR을 찍으면 자기 자리의 순공 시작·종료 화면이 열립니다.<br>
+    실을 선택하고 <b>인쇄</b>를 누르면, 그 실의 20개 좌석 QR이 A4에 정리되어 나옵니다.
+  </div>
+
+  <div class="controls">
+    <button class="ctrl active" data-r="2" onclick="setRoom(2)">2실</button>
+    <button class="ctrl" data-r="3" onclick="setRoom(3)">3실</button>
+    <button class="ctrl" data-r="4" onclick="setRoom(4)">4실</button>
+    <button class="ctrl print-btn" onclick="window.print()">🖨 인쇄</button>
+  </div>
+
+  <div id="loading" class="loading">QR 생성 중...</div>
+  <div class="sheet" id="sheet" style="display:none;"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+<script src="firebase-config.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  let curRoom = 2;
+
+  // 앱 기본 주소 (배포 후 실제 주소로 자동 인식)
+  const BASE_URL = location.origin + location.pathname.replace(/[^/]*$/, '') + 'seat.html';
+
+  function roomSeats(room) {
+    const start = (room - 2) * 20 + 1;
+    const seats = [];
+    // 인쇄는 번호 순서대로 (1~20) 보기 좋게
+    for (let i = 0; i < 20; i++) seats.push({ code: room + '-' + (start + i), num: start + i });
+    return seats;
+  }
+
+  function setRoom(r) {
+    curRoom = r;
+    document.querySelectorAll('.ctrl[data-r]').forEach(b => b.classList.toggle('active', +b.dataset.r === r));
+    render();
+  }
+
+  function render() {
+    const seats = roomSeats(curRoom);
+    let html = `<div class="room-section"><div class="room-title">${curRoom}실 좌석 QR</div><div class="qr-grid">`;
+    seats.forEach(seat => {
+      html += `<div class="qr-item">
+        <div class="seat-name">${curRoom}실 ${seat.num}번</div>
+        <img id="qr-${seat.code}" alt="${seat.code}">
+        <div class="hint">${seat.code}</div>
+      </div>`;
+    });
+    html += '</div></div>';
+    $('sheet').innerHTML = html;
+    $('sheet').style.display = 'block';
+    $('loading').style.display = 'none';
+
+    // QR 생성
+    seats.forEach(seat => {
+      const url = BASE_URL + '?s=' + seat.code;
+      const qr = new QRious({ value: url, size: 240, level: 'M' });
+      $('qr-' + seat.code).src = qr.toDataURL();
+    });
+  }
+
+  render();
+</script>
+</body>
+</html>

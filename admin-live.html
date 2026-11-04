@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>실시간 현황 · 가보자 서울대!</title>
+<link rel="manifest" href="manifest-admin.json">
+<meta name="theme-color" content="#12141C">
+<link rel="apple-touch-icon" href="icon-admin-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="순공 관리">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  :root {
+    --bg: #161822; --card: #1E212D; --card2: #1A1C26; --line: #2E3242;
+    --blue: #2E466A; --blue-t: #7FB0FF; --text: #E4E4EC; --text-dim: #8A8A9A; --text-mute: #5A5A6A;
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 16px; }
+  .wrap { max-width: 520px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .top h1 { font-size: 18px; font-weight: 700; }
+  .top .date { font-size: 12px; color: var(--text-dim); }
+  .back { font-size: 12px; color: var(--blue-t); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; text-decoration: none; }
+
+  .code-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; }
+  .code-card .l { font-size: 11px; color: var(--text-dim); margin-bottom: 4px; }
+  .code-card .l .tag { color: var(--text-mute); }
+  .code-card .code { font-size: 30px; font-weight: 700; color: #CFE0FF; letter-spacing: 5px; font-variant-numeric: tabular-nums; }
+  .code-card .code.none { font-size: 16px; letter-spacing: 0; color: var(--text-mute); font-weight: 400; }
+  .code-card .btn { font-size: 12px; color: var(--blue-t); background: #161E2A; border: 1px solid var(--blue); border-radius: 9px; padding: 9px 14px; cursor: pointer; white-space: nowrap; }
+  .code-card .btn:active { opacity: 0.7; }
+
+  .summary { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-bottom: 14px; }
+  .sc { border-radius: 11px; padding: 11px 6px; text-align: center; }
+  .sc .n { font-size: 20px; font-weight: 700; }
+  .sc .t { font-size: 10px; margin-top: 2px; }
+  .sc.studying { background: #16241E; border: 1px solid #2E5A48; } .sc.studying .n { color: #6FD6A8; } .sc.studying .t { color: #6A9A84; }
+  .sc.paused { background: #12202E; border: 1px solid #2A4A66; } .sc.paused .n { color: #6FB6E0; } .sc.paused .t { color: #5A8AA8; }
+  .sc.done { background: #241D08; border: 1px solid #5A4A2A; } .sc.done .n { color: #E0C24A; } .sc.done .t { color: #9A8A5A; }
+  .sc.absent { background: #2A1418; border: 1px solid #5A2E38; } .sc.absent .n { color: #D87A8A; } .sc.absent .t { color: #9A6A72; }
+  .sc.invalid { background: #1A1A1F; border: 1px solid #3E3E48; } .sc.invalid .n { color: #A8A8B4; } .sc.invalid .t { color: #787884; }
+
+  .legend { display: flex; gap: 12px; justify-content: center; margin-bottom: 14px; font-size: 10px; color: var(--text-dim); flex-wrap: wrap; }
+  .legend span { display: flex; align-items: center; gap: 4px; }
+  .legend .dot { width: 9px; height: 9px; border-radius: 2px; }
+
+  .room-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+  .rtab { flex: 1; font-size: 12px; background: var(--card); color: var(--text-dim); border: 1px solid var(--line); border-radius: 8px; padding: 8px; cursor: pointer; }
+  .rtab.active { background: var(--blue); color: #CFE0FF; border-color: var(--blue); }
+
+  .room { background: #14141F; border-radius: 12px; padding: 14px; }
+  .room .rhd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .room .rhd .nm { font-size: 14px; font-weight: 600; }
+  .room .rhd .st { font-size: 11px; color: #6FD6A8; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .seat { min-height: 66px; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; cursor: pointer; padding: 6px 3px; }
+  .seat .no { font-size: 11px; font-weight: 600; }
+  .seat .nm { font-size: 15px; font-weight: 700; line-height: 1.1; text-align: center; word-break: keep-all; }
+  .seat.studying { background: #16281F; border: 1px solid #2E9A6E; } .seat.studying .no { color: #5A9A7A; } .seat.studying .nm { color: #8FE0B8; }
+  .seat.paused { background: #12202E; border: 1px solid #3A6A96; } .seat.paused .no { color: #5A8AA8; } .seat.paused .nm { color: #7FC0E8; }
+  .seat.done { background: #241D08; border: 1px solid #8A6A2A; } .seat.done .no { color: #9A8A5A; } .seat.done .nm { color: #E0C24A; }
+  .seat.absent { background: #2A1418; border: 1px solid #9A3A4A; } .seat.absent .no { color: #9A6A72; } .seat.absent .nm { color: #D87A8A; }
+  .seat.invalid { background: #1A1A1F; border: 1px solid #4A4A54; } .seat.invalid .no { color: #78788A; } .seat.invalid .nm { color: #A8A8B4; }
+  .seat.empty { background: #22252F; border: 1px dashed #4A4A5A; } .seat.empty .no { color: #5A5A6A; font-size: 10px; } .seat.empty .nm { color: #5A5A6A; font-size: 11px; font-weight: 500; }
+  .seat .tm { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: .2px; margin-top: 1px; }
+  .seat.studying .tm { color: #6FD6A8; }
+  .seat.paused .tm { color: #7FC0E8; font-size: 11px; }
+  .seat.done .tm { color: #E0C24A; }
+  .seat:active { opacity: 0.7; }
+
+  .loading { text-align: center; color: var(--text-dim); padding: 40px; }
+
+  /* 좌석 상세 모달 */
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 200; padding: 20px; }
+  .modal-bg.show { display: flex; }
+  .modal { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 22px; max-width: 320px; width: 100%; }
+  .modal .mhd { display: flex; justify-content: space-between; align-items: start; margin-bottom: 16px; }
+  .modal .mhd .who { font-size: 17px; font-weight: 700; } .modal .mhd .seat-lbl { font-size: 12px; color: var(--text-dim); margin-top: 3px; }
+  .modal .close { font-size: 20px; color: var(--text-dim); cursor: pointer; background: none; border: none; }
+  .modal .stat-badge { display: inline-block; font-size: 12px; padding: 4px 10px; border-radius: 8px; margin-bottom: 14px; }
+  .modal .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-top: 1px solid var(--line); font-size: 13px; }
+  .modal .detail-row .k { color: var(--text-dim); } .modal .detail-row .v { color: var(--text); font-weight: 500; }
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #2A2A3D; color: #fff; font-size: 13px; padding: 12px 20px; border-radius: 10px; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 300; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <h1>실시간 현황</h1>
+      <div class="date" id="date">—</div>
+    </div>
+    <a class="back" href="admin.html">← 메뉴</a>
+  </div>
+
+  <div class="code-card">
+    <div>
+      <div class="l">오늘의 코드 <span class="tag">· 전 실 공통</span></div>
+      <div class="code none" id="codeVal">아직 생성 안 됨</div>
+    </div>
+    <button class="btn" id="codeBtn" onclick="genCode()">코드 생성</button>
+  </div>
+
+  <div class="summary">
+    <div class="sc studying"><div class="n" id="cStudy">0</div><div class="t">순공 중</div></div>
+    <div class="sc paused"><div class="n" id="cPaused">0</div><div class="t">잠시 멈춤</div></div>
+    <div class="sc done"><div class="n" id="cDone">0</div><div class="t">종료</div></div>
+    <div class="sc absent"><div class="n" id="cAbsent">0</div><div class="t">미출석</div></div>
+    <div class="sc invalid"><div class="n" id="cInvalid">0</div><div class="t">무효</div></div>
+  </div>
+
+  <div class="legend">
+    <span><span class="dot" style="background:#2E9A6E;"></span>순공 중</span>
+    <span><span class="dot" style="background:#3A6A96;"></span>잠시 멈춤</span>
+    <span><span class="dot" style="background:#C2A22E;"></span>종료</span>
+    <span><span class="dot" style="background:#9A3A4A;"></span>미출석</span>
+    <span><span class="dot" style="background:#4A4A54;"></span>무효</span>
+    <span><span class="dot" style="background:#22252F;border:1px dashed #4A4A5A;"></span>빈자리</span>
+  </div>
+
+  <div class="room-tabs">
+    <button class="rtab active" data-r="2" onclick="setRoom(2)">2실</button>
+    <button class="rtab" data-r="3" onclick="setRoom(3)">3실</button>
+    <button class="rtab" data-r="4" onclick="setRoom(4)">4실</button>
+  </div>
+
+  <div id="loading" class="loading">불러오는 중...</div>
+  <div id="roomView"></div>
+</div>
+
+<div class="modal-bg" id="modal">
+  <div class="modal" id="modalBody"></div>
+</div>
+<div id="toast" class="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  let students = [];
+  let todayRecs = {};   // sid → 오늘 기록
+  let curRoom = 2;
+  let tick = null;
+
+  // 날짜 표시
+  (function() {
+    const d = new Date();
+    const days = ['일','월','화','수','목','금','토'];
+    $('date').textContent = `${d.getMonth()+1}월 ${d.getDate()}일 (${days[d.getDay()]}) ${p2(d.getHours())}:${p2(d.getMinutes())}`;
+  })();
+
+  function roomSeats(room) {
+    const start = (room - 2) * 20 + 1;
+    const seats = [];
+    for (let col = 0; col < 4; col++)
+      for (let row = 0; row < 5; row++)
+        seats.push({ code: room + '-' + (start + col*5 + row), num: start + col*5 + row });
+    return seats;
+  }
+
+  // 오늘 코드 구독
+  let codeAutoTried = false;
+  db.ref('dailyCode/' + todayKey()).on('value', snap => {
+    const code = snap.val();
+    if (code) {
+      $('codeVal').textContent = code;
+      $('codeVal').className = 'code';
+      $('codeBtn').textContent = '재생성';
+    } else {
+      $('codeVal').textContent = '생성 중...';
+      $('codeVal').className = 'code none';
+      $('codeBtn').textContent = '코드 생성';
+      // 코드가 없으면 자동 생성 (인정 시간대 7~22시, 한 번만 시도)
+      const h = new Date().getHours();
+      if (!codeAutoTried && h >= 7 && h < 22) {
+        codeAutoTried = true;
+        const newCode = String(Math.floor(1000 + Math.random() * 9000));
+        db.ref('dailyCode/' + todayKey()).set(newCode);
+      } else if (h < 7 || h >= 22) {
+        $('codeVal').textContent = '인정 시간 아님';
+      }
+    }
+  });
+
+  function genCode() {
+    const cur = $('codeVal').className.includes('none') ? false : true;
+    if (cur && !confirm('오늘 코드를 새로 만들까요?\n이미 순공 중인 학생에는 영향 없지만, 새로 시작하는 학생은 새 코드를 써야 합니다.')) return;
+    const code = String(Math.floor(1000 + Math.random() * 9000));
+    db.ref('dailyCode/' + todayKey()).set(code);
+    toast('오늘 코드: ' + code + ' (칠판에 적어주세요)');
+  }
+
+  // 좌석표 틀을 먼저 그려서 빠르게 보이게
+  $('loading').style.display = 'none';
+  renderRoom();
+
+  // 학생 + 오늘 기록 구독
+  db.ref('students').on('value', snap => {
+    students = [];
+    snap.forEach(c => { students.push(c.val()); });
+    render();
+  });
+  const END_HOUR = 22;
+  db.ref('records/' + todayKey()).on('value', snap => {
+    todayRecs = {};
+    snap.forEach(c => { todayRecs[c.key] = c.val(); });
+    // 22시가 지났는데 아직 ongoing(퇴실 안 함)인 기록을 자동 무효 처리
+    const nowH = new Date().getHours();
+    if (nowH >= END_HOUR) {
+      Object.keys(todayRecs).forEach(sid => {
+        const rec = todayRecs[sid];
+        if (rec && (rec.status === 'ongoing' || rec.status === 'paused')) {
+          const updates = {};
+          updates['records/' + todayKey() + '/' + sid + '/status'] = 'invalid';
+          updates['records/' + todayKey() + '/' + sid + '/durationSec'] = 0;
+          updates['records/' + todayKey() + '/' + sid + '/endAt'] = firebase.database.ServerValue.TIMESTAMP;
+          db.ref().update(updates);
+        }
+      });
+    }
+    render();
+  });
+
+  function seatStatus(student) {
+    const rec = todayRecs[student.sid];
+    if (!rec) return 'absent';
+    if (rec.status === 'ongoing') return 'studying';
+    if (rec.status === 'paused') return 'paused';
+    if (rec.status === 'done') return 'done';
+    if (rec.status === 'invalid') return 'invalid';
+    return 'absent';
+  }
+
+  function setRoom(r) {
+    curRoom = r;
+    document.querySelectorAll('.rtab').forEach(b => b.classList.toggle('active', +b.dataset.r === r));
+    renderRoom();
+  }
+
+  function render() {
+    $('loading').style.display = 'none';
+    // 요약 (좌석 배정된 학생만)
+    let cStudy=0, cPaused=0, cDone=0, cAbsent=0, cInvalid=0;
+    students.forEach(s => {
+      if (!s.seat) return;
+      const st = seatStatus(s);
+      if (st==='studying') cStudy++;
+      else if (st==='paused') cPaused++;
+      else if (st==='done') cDone++;
+      else if (st==='invalid') cInvalid++;
+      else cAbsent++;
+    });
+    $('cStudy').textContent = cStudy;
+    $('cPaused').textContent = cPaused;
+    $('cDone').textContent = cDone;
+    $('cAbsent').textContent = cAbsent;
+    $('cInvalid').textContent = cInvalid;
+    renderRoom();
+  }
+
+  function renderRoom() {
+    const seats = roomSeats(curRoom);
+    let studyCount = 0;
+    let html = '';
+    seats.forEach(seat => {
+      const student = students.find(s => s.seat === seat.code);
+      if (!student) {
+        html += `<div class="seat empty"><span class="no">${seat.num}번</span><span class="nm">빈자리</span></div>`;
+      } else {
+        const st = seatStatus(student);
+        if (st === 'studying') studyCount++;
+        const rec = todayRecs[student.sid];
+        const tm = clockFromRec(rec, st);
+        const tmHtml = tm ? `<span class="tm" id="tm-${student.sid}">${tm}</span>` : '';
+        html += `<div class="seat ${st}" onclick="showDetail('${student.sid}','${seat.code}')">
+          <span class="no">${seat.num}번</span>
+          <span class="nm">${esc(student.name)}</span>${tmHtml}</div>`;
+      }
+    });
+    $('roomView').innerHTML =
+      `<div class="room"><div class="rhd"><span class="nm">${curRoom}실</span><span class="st">순공 ${studyCount}명</span></div><div class="grid">${html}</div></div>`;
+  }
+
+  function showDetail(sid, code) {
+    const student = students.find(s => s.sid === sid);
+    const rec = todayRecs[sid];
+    const st = seatStatus(student);
+    const stInfo = {
+      studying: ['순공 중', '#16281F', '#6FD6A8'],
+      paused: ['잠시 멈춤', '#12202E', '#7FC0E8'],
+      done: ['종료', '#241D08', '#E0C24A'],
+      absent: ['미출석', '#2A1418', '#D87A8A'],
+      invalid: ['무효', '#1A1A1F', '#A8A8B4']
+    }[st];
+
+    let details = '';
+    if (rec && rec.startAt) {
+      const sd = new Date(rec.startAt);
+      details += row('시작', `${p2(sd.getHours())}:${p2(sd.getMinutes())}`);
+      if (rec.status === 'ongoing') {
+        // 현재까지 순공 = accumSec + 현재 구간
+        const segStart = rec.segStart || rec.startAt;
+        const cur = (rec.accumSec || 0) + Math.floor((Date.now() - segStart) / 1000);
+        details += row('진행 시간', fmtDuration(cur));
+      } else if (rec.status === 'paused') {
+        details += row('공부한 시간', fmtDuration(rec.accumSec || 0));
+        details += row('상태', '점심·저녁 등으로 잠시 멈춤');
+      } else if (rec.endAt) {
+        const ed = new Date(rec.endAt);
+        details += row('종료', `${p2(ed.getHours())}:${p2(ed.getMinutes())}`);
+        details += row('오늘 순공', fmtDuration(rec.durationSec || 0));
+      }
+    } else {
+      details += `<div class="detail-row"><span class="k">오늘 기록</span><span class="v">없음</span></div>`;
+    }
+    details += row('누적 시간', fmtDuration(student.totalSec || 0));
+    details += row('소속', student.cls + '반 · ' + student.sid);
+
+    $('modalBody').innerHTML = `
+      <div class="mhd">
+        <div><div class="who">${esc(student.name)}</div><div class="seat-lbl">${seatLabel(code)}</div></div>
+        <button class="close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="stat-badge" style="background:${stInfo[1]};color:${stInfo[2]};">${stInfo[0]}</div>
+      ${details}`;
+    $('modal').classList.add('show');
+  }
+  function row(k, v) { return `<div class="detail-row"><span class="k">${k}</span><span class="v">${v}</span></div>`; }
+  function closeModal() { $('modal').classList.remove('show'); }
+  $('modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
+
+  // ===== 좌석 칸 시간 표시 =====
+  // 현재까지 순공 초 (진행중이면 현재 구간 포함)
+  function segNow(rec) {
+    let s = rec.accumSec || 0;
+    if (rec.status === 'ongoing') { const ss = rec.segStart || rec.startAt; s += Math.floor((Date.now() - ss) / 1000); }
+    return s;
+  }
+  // 실시간 표기 h:mm:ss (1시간 미만이면 mm:ss)
+  function fmtLive(sec) {
+    sec = Math.max(0, sec | 0);
+    const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
+    const pp = n => String(n).padStart(2, '0');
+    return h > 0 ? h + ':' + pp(m) + ':' + pp(s) : pp(m) + ':' + pp(s);
+  }
+  // 종료 표기 시:분 (4:25 = 4시간 25분)
+  function fmtDayHM(sec) {
+    sec = Math.max(0, sec | 0);
+    return Math.floor(sec / 3600) + ':' + String(Math.floor(sec % 3600 / 60)).padStart(2, '0');
+  }
+  function clockFromRec(rec, st) {
+    if (!rec) return '';
+    if (st === 'studying') return fmtLive(segNow(rec));
+    if (st === 'paused') return '⏸ ' + fmtLive(rec.accumSec || 0);
+    if (st === 'done') return fmtDayHM(rec.durationSec || 0);
+    return '';
+  }
+  // 1초마다 순공 중 좌석 시간만 갱신 (전체 다시 그리지 않아 깜빡임 없음)
+  function updateSeatTimes() {
+    Object.keys(todayRecs).forEach(sid => {
+      const rec = todayRecs[sid];
+      if (!rec || rec.status !== 'ongoing') return;
+      const el = document.getElementById('tm-' + sid);
+      if (el) el.textContent = fmtLive(segNow(rec));
+    });
+  }
+  tick = setInterval(updateSeatTimes, 1000);
+
+  function esc(s) { return String(s).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])); }
+  function p2(n) { return String(n).padStart(2, '0'); }
+  let toastTimer;
+  function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2500); }
+</script>
+</body>
+</html>

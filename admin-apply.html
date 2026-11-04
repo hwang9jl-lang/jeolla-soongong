@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>신청 관리 · 가보자 서울대!</title>
+<link rel="manifest" href="manifest-admin.json">
+<meta name="theme-color" content="#12141C">
+<link rel="apple-touch-icon" href="icon-admin-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="순공 관리">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  :root {
+    --bg: #12141C;
+    --card: #1E212D;
+    --card2: #1A1C26;
+    --line: #2E3242;
+    --blue: #2E466A;
+    --blue-t: #7FB0FF;
+    --text: #E4E4EC;
+    --text-dim: #8A8A9A;
+    --text-mute: #5A5A6A;
+    --green: #2E5A48;
+    --green-t: #6FD6A8;
+    --red-bg: #2A1E22;
+    --red-line: #5A3A42;
+    --red-t: #C97A8A;
+    --amber-t: #E4A76F;
+    --amber-line: #5A4A2A;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 16px;
+  }
+  .wrap { max-width: 520px; margin: 0 auto; }
+
+  .top {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 14px;
+  }
+  .top h1 { font-size: 18px; font-weight: 700; }
+  .top-r { display: flex; gap: 8px; align-items: center; }
+  .menu-btn {
+    font-size: 12px; color: var(--blue-t);
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 9px; padding: 8px 12px; cursor: pointer; text-decoration: none;
+    display: flex; align-items: center;
+  }
+  .menu-btn:active { opacity: 0.7; }
+  .excel-btn {
+    font-size: 12px; color: var(--green-t);
+    background: #16241E; border: 1px solid var(--green);
+    border-radius: 9px; padding: 8px 14px; cursor: pointer;
+  }
+  .excel-btn:active { opacity: 0.7; }
+
+  /* 신청 스위치 */
+  .switch-row {
+    display: flex; justify-content: space-between; align-items: center;
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 14px 16px; margin-bottom: 14px;
+  }
+  .switch-row .lbl { font-size: 14px; font-weight: 600; }
+  .switch-row .st { font-size: 12px; margin-top: 3px; }
+  .switch-row .st.open { color: var(--green-t); }
+  .switch-row .st.closed { color: var(--text-mute); }
+  .toggle {
+    position: relative; width: 52px; height: 30px;
+    background: #3A3A4A; border-radius: 15px; cursor: pointer;
+    transition: background 0.2s; flex-shrink: 0;
+  }
+  .toggle.on { background: #2E9A6E; }
+  .toggle .knob {
+    position: absolute; top: 3px; left: 3px;
+    width: 24px; height: 24px; background: #fff; border-radius: 50%;
+    transition: transform 0.2s;
+  }
+  .toggle.on .knob { transform: translateX(22px); }
+
+  /* 요약 */
+  .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+  .sum-card { background: var(--card); border-radius: 10px; padding: 11px 6px; text-align: center; }
+  .sum-card .n { font-size: 19px; font-weight: 700; }
+  .sum-card .t { font-size: 10px; color: var(--text-dim); margin-top: 2px; }
+  .n-apply { color: var(--blue-t); }
+  .n-confirm { color: var(--green-t); }
+  .n-reject { color: var(--amber-t); }
+  .n-wait { color: var(--text-dim); }
+
+  /* 검색·필터 */
+  .search-row { margin-bottom: 10px; }
+  .search-row input {
+    width: 100%; background: var(--card); border: 1px solid var(--line);
+    border-radius: 9px; padding: 10px 13px; font-size: 13px; color: var(--text); outline: none;
+  }
+  .search-row input:focus { border-color: var(--blue); }
+  .filter-row { display: flex; gap: 5px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 12px; }
+  .filter-row::-webkit-scrollbar { height: 0; }
+  .fbtn {
+    flex-shrink: 0; font-size: 12px; background: var(--card); color: var(--text-dim);
+    border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; cursor: pointer;
+  }
+  .fbtn.active { background: var(--blue); color: #CFE0FF; border-color: var(--blue); }
+
+  /* 명단 */
+  #list { display: flex; flex-direction: column; gap: 5px; }
+  .row {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--card); border-radius: 9px; padding: 10px 12px;
+  }
+  .row.rejected { opacity: 0.5; }
+  .row.waiting { background: var(--card2); border: 1px dashed #3A3A50; }
+  .row .ord { font-size: 13px; font-weight: 700; color: var(--text-dim); width: 28px; text-align: center; flex-shrink: 0; }
+  .row.rejected .ord { text-decoration: line-through; }
+  .row .info { flex: 1; min-width: 0; }
+  .row .info .nm { font-size: 14px; }
+  .row .info .nm .cls { font-size: 11px; color: var(--blue-t); margin-left: 4px; }
+  .row.rejected .info .nm { text-decoration: line-through; color: var(--text-dim); }
+  .row .info .meta { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+  .row .act { font-size: 11px; border-radius: 7px; padding: 6px 11px; cursor: pointer; flex-shrink: 0; }
+  .act-reject { color: var(--red-t); background: var(--red-bg); border: 1px solid var(--red-line); }
+  .act-restore { color: var(--green-t); background: #16241E; border: 1px solid var(--green); }
+  .act-promote { color: var(--blue-t); background: #161E2A; border: 1px solid var(--blue); }
+  .act:active { opacity: 0.7; }
+
+  /* 커트라인 */
+  .cutline { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+  .cutline .bar { flex: 1; height: 1px; background: var(--amber-line); }
+  .cutline .lbl { font-size: 11px; color: var(--amber-t); font-weight: 700; }
+
+  .confirm-btn {
+    width: 100%; margin-top: 16px; padding: 14px;
+    background: var(--blue); border: none; border-radius: 11px;
+    color: #CFE0FF; font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  .confirm-btn:active { opacity: 0.8; }
+
+  .empty { text-align: center; color: var(--text-mute); font-size: 13px; padding: 30px; }
+  .loading { text-align: center; color: var(--text-dim); font-size: 14px; padding: 40px; }
+  .toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: #2A2A3D; color: #fff; font-size: 13px; padding: 12px 20px;
+    border-radius: 10px; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 100;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>신청 관리</h1>
+    <div class="top-r">
+      <button class="excel-btn" onclick="exportExcel()">엑셀 내보내기</button>
+      <a class="menu-btn" href="admin.html">← 메뉴</a>
+    </div>
+  </div>
+
+  <div class="switch-row">
+    <div>
+      <div class="lbl">신청 받기</div>
+      <div id="switchSt" class="st closed">마감됨</div>
+    </div>
+    <div id="toggle" class="toggle" onclick="toggleApply()"><div class="knob"></div></div>
+  </div>
+
+  <div class="summary">
+    <div class="sum-card"><div class="n n-apply" id="cntApply">0</div><div class="t">신청</div></div>
+    <div class="sum-card"><div class="n n-confirm" id="cntConfirm">0</div><div class="t">확정</div></div>
+    <div class="sum-card"><div class="n n-reject" id="cntReject">0</div><div class="t">탈락</div></div>
+    <div class="sum-card"><div class="n n-wait" id="cntWait">0</div><div class="t">대기</div></div>
+  </div>
+
+  <div class="search-row">
+    <input id="search" type="text" placeholder="이름 검색" oninput="render()">
+  </div>
+  <div class="filter-row" id="filterRow"></div>
+
+  <div id="loading" class="loading">불러오는 중...</div>
+  <div id="list"></div>
+
+  <button class="confirm-btn" onclick="goAssign()" id="confirmBtn" style="display:none;">
+    확정 명단으로 자리 배정하기 →
+  </button>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const CAPACITY = 60;
+  let apps = [];         // 신청 목록 (배열)
+  let applyOpen = false;
+  let curFilter = 'all';
+
+  // 필터 버튼 생성 (전체 + 1~10반)
+  (function makeFilters() {
+    const fr = $('filterRow');
+    const btns = [['all', '전체']];
+    for (let i = 1; i <= 10; i++) btns.push([String(i), i + '반']);
+    fr.innerHTML = btns.map(([v, t]) =>
+      `<button class="fbtn ${v === 'all' ? 'active' : ''}" data-f="${v}" onclick="setFilter('${v}')">${t}</button>`
+    ).join('');
+  })();
+
+  function setFilter(f) {
+    curFilter = f;
+    document.querySelectorAll('.fbtn').forEach(b => b.classList.toggle('active', b.dataset.f === f));
+    render();
+  }
+
+  // 신청 스위치 상태 실시간 구독
+  db.ref('settings/applyOpen').on('value', (snap) => {
+    applyOpen = snap.val() === true;
+    updateSwitch();
+  });
+
+  function updateSwitch() {
+    $('toggle').classList.toggle('on', applyOpen);
+    $('switchSt').textContent = applyOpen ? '신청 받는 중' : '마감됨';
+    $('switchSt').className = 'st ' + (applyOpen ? 'open' : 'closed');
+  }
+
+  function toggleApply() {
+    db.ref('settings/applyOpen').set(!applyOpen);
+    toast(!applyOpen ? '신청을 받기 시작합니다' : '신청을 마감합니다');
+  }
+
+  // 신청 목록 실시간 구독
+  db.ref('applications').on('value', (snap) => {
+    $('loading').style.display = 'none';
+    apps = [];
+    snap.forEach((child) => {
+      apps.push(child.val());
+    });
+    // 신청 순번대로 정렬
+    apps.sort((a, b) => (a.order || 0) - (b.order || 0));
+    render();
+  });
+
+  function render() {
+    // 통계
+    const active = apps.filter(a => a.status !== 'rejected');  // 탈락 제외한 유효 신청
+    const rejected = apps.filter(a => a.status === 'rejected');
+    // 유효 신청 중 앞 60명 = 확정후보, 나머지 = 대기
+    const confirmCount = Math.min(active.length, CAPACITY);
+    const waitCount = Math.max(0, active.length - CAPACITY);
+
+    $('cntApply').textContent = apps.length;
+    $('cntConfirm').textContent = confirmCount;
+    $('cntReject').textContent = rejected.length;
+    $('cntWait').textContent = waitCount;
+
+    $('confirmBtn').style.display = apps.length > 0 ? 'block' : 'none';
+
+    // 필터 + 검색 적용
+    const kw = $('search').value.trim();
+    // 유효 신청에 커트라인 순위 매기기
+    let activeRank = 0;
+    const list = $('list');
+    list.innerHTML = '';
+
+    if (apps.length === 0) {
+      list.innerHTML = '<div class="empty">아직 신청자가 없습니다.</div>';
+      return;
+    }
+
+    let shown = 0;
+    let cutlineShown = false;
+
+    apps.forEach((a) => {
+      const isRejected = a.status === 'rejected';
+      if (!isRejected) activeRank++;
+      const rankInActive = isRejected ? null : activeRank;
+      const isWaiting = !isRejected && rankInActive > CAPACITY;
+
+      // 커트라인 표시 (유효 신청 60번과 61번 사이)
+      const showCutHere = !cutlineShown && !isRejected && rankInActive === CAPACITY + 1;
+
+      // 필터
+      if (curFilter !== 'all' && a.cls !== curFilter) return;
+      if (kw && !a.name.includes(kw)) return;
+
+      // 커트라인 (필터 없을 때만)
+      if (showCutHere && curFilter === 'all' && !kw) {
+        list.insertAdjacentHTML('beforeend',
+          `<div class="cutline"><div class="bar"></div><div class="lbl">${CAPACITY}명 커트라인</div><div class="bar"></div></div>`);
+        cutlineShown = true;
+      }
+
+      shown++;
+      const cls = isRejected ? 'rejected' : (isWaiting ? 'waiting' : '');
+      const ordText = rankInActive || '-';
+      const date = a.appliedAt ? fmtDate(a.appliedAt) : '';
+      let actBtn;
+      if (isRejected) {
+        actBtn = `<div class="act act-restore" onclick="restore('${a.sid}')">되살리기</div>`;
+      } else if (isWaiting) {
+        actBtn = `<div class="act act-promote" onclick="promote('${a.sid}')">승급</div>`;
+      } else {
+        actBtn = `<div class="act act-reject" onclick="reject('${a.sid}')">탈락</div>`;
+      }
+      const statusTxt = isRejected ? ' · 탈락' : (isWaiting ? ' · 대기' : '');
+
+      list.insertAdjacentHTML('beforeend', `
+        <div class="row ${cls}">
+          <div class="ord">${ordText}</div>
+          <div class="info">
+            <div class="nm">${esc(a.name)}<span class="cls">${a.cls}반</span></div>
+            <div class="meta">${a.sid} · ${date}${statusTxt}</div>
+          </div>
+          ${actBtn}
+        </div>`);
+    });
+
+    if (shown === 0) {
+      list.innerHTML = '<div class="empty">해당하는 신청자가 없습니다.</div>';
+    }
+  }
+
+  // 탈락 처리
+  function reject(sid) {
+    db.ref('applications/' + sid + '/status').set('rejected');
+    toast('탈락 처리했습니다');
+  }
+  // 되살리기 (탈락 → 대기 상태로, 순번은 유지)
+  function restore(sid) {
+    db.ref('applications/' + sid + '/status').set('waiting');
+    toast('되살렸습니다');
+  }
+  // 승급 (대기자를 커트라인 위로 = 순번을 앞으로 당김)
+  // 가장 간단한 방식: 현재 유효 신청 중 최소 order보다 작은 값을 줘서 맨 앞으로... 은 과함.
+  // 대신 "승급"은 이 학생의 order를 현재 커트라인 마지막 확정자 바로 앞으로 옮김.
+  async function promote(sid) {
+    // 유효 신청을 order순 정렬
+    const active = apps.filter(a => a.status !== 'rejected').sort((a,b)=>(a.order||0)-(b.order||0));
+    const target = apps.find(a => a.sid === sid);
+    if (!target) return;
+    // 60번째 확정자
+    if (active.length <= CAPACITY) { toast('이미 확정 범위 안입니다'); return; }
+    const cutStudent = active[CAPACITY - 1]; // 60번째 (0-index 59)
+    // target의 order를 cutStudent보다 살짝 작게: 두 order 사이값
+    const prevStudent = active[CAPACITY - 2]; // 59번째
+    let newOrder;
+    if (prevStudent) {
+      newOrder = (prevStudent.order + cutStudent.order) / 2;
+    } else {
+      newOrder = cutStudent.order - 0.5;
+    }
+    await db.ref('applications/' + sid + '/order').set(newOrder);
+    toast(target.name + ' 승급했습니다');
+  }
+
+  async function goAssign() {
+    // 화면에 이미 실시간 구독으로 로드된 apps 배열을 사용 (4명 정확히 있음)
+    // get()이 로컬 캐시에서 1명만 읽어오는 문제를 피하기 위함
+    const source = apps.slice();
+
+    if (source.length === 0) { toast('신청자가 없습니다'); return; }
+
+    // 유효 신청(탈락 제외) 상위 60명을 확정 → students로 복사
+    const active = source.filter(a => a.status !== 'rejected')
+                       .sort((a,b) => (a.order||0) - (b.order||0));
+    const finalists = active.slice(0, CAPACITY);
+
+    if (finalists.length === 0) { toast('확정할 신청자가 없습니다'); return; }
+
+    // 이미 students에 있는지 확인해서, 기존 배정 좌석/PIN은 보존
+    const existSnap = await db.ref('students').get();
+    const existing = existSnap.val() || {};
+
+    const updates = {};
+    const finalistSids = new Set(finalists.map(f => f.sid));
+    finalists.forEach((f, idx) => {
+      const prev = existing[f.sid] || {};
+      updates['students/' + f.sid] = {
+        sid: f.sid,
+        name: f.name,
+        cls: f.cls,
+        rank: idx + 1,
+        seat: prev.seat || null,
+        pin: prev.pin || null,
+        totalSec: prev.totalSec || 0
+      };
+    });
+    Object.keys(existing).forEach(sid => {
+      if (!finalistSids.has(sid)) updates['students/' + sid] = null;
+    });
+
+    await db.ref().update(updates);
+    toast(finalists.length + '명 확정 완료');
+    setTimeout(() => { window.location.replace('admin-assign.html'); }, 700);
+  }
+
+  // 엑셀 내보내기 (CSV, 엑셀에서 열림)
+  function exportExcel() {
+    if (apps.length === 0) { toast('신청자가 없습니다'); return; }
+    let activeRank = 0;
+    const rows = [['순번', '이름', '학번', '소속반', '신청시각', '상태']];
+    apps.forEach((a) => {
+      const isRejected = a.status === 'rejected';
+      if (!isRejected) activeRank++;
+      const rank = isRejected ? '' : activeRank;
+      const isWaiting = !isRejected && activeRank > CAPACITY;
+      const status = isRejected ? '탈락' : (isWaiting ? '대기' : '확정후보');
+      rows.push([rank, a.name, a.sid, a.cls + '반', a.appliedAt ? fmtFull(a.appliedAt) : '', status]);
+    });
+    const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\r\n');
+    const BOM = '\uFEFF';  // 엑셀 한글 깨짐 방지
+    const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '순공신청명단_' + todayKey() + '.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('엑셀 파일을 저장했습니다');
+  }
+
+  // 유틸
+  function fmtDate(ts) {
+    const d = new Date(ts);
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const dd = String(d.getDate()).padStart(2,'0');
+    const hh = String(d.getHours()).padStart(2,'0');
+    const mi = String(d.getMinutes()).padStart(2,'0');
+    return `${mm}/${dd} ${hh}:${mi}`;
+  }
+  function fmtFull(ts) {
+    const d = new Date(ts);
+    const y = d.getFullYear();
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const dd = String(d.getDate()).padStart(2,'0');
+    const hh = String(d.getHours()).padStart(2,'0');
+    const mi = String(d.getMinutes()).padStart(2,'0');
+    return `${y}-${mm}-${dd} ${hh}:${mi}`;
+  }
+  function esc(s) { return String(s).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])); }
+  let toastTimer;
+  function toast(msg) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+  }
+</script>
+</body>
+</html>
