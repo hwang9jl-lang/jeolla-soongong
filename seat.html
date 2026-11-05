@@ -209,9 +209,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script>
+<script type="application/x-soongong">
   const $ = (id) => document.getElementById(id);
-  const START_HOUR = 7, END_HOUR = 22;
 
   // URL에서 좌석 코드 읽기: seat.html?s=2-7
   const params = new URLSearchParams(location.search);
@@ -241,7 +240,7 @@
     $('loading').style.display = 'none';
     let found = null;
     if (snap.exists()) {
-      snap.forEach(c => { const v = c.val(); if (v.seat === seatCode) found = v; });
+      snap.forEach(c => { const v = c.val(); if (activeStudent(v) && v.seat === seatCode) found = v; });
     }
     if (!found) {
       $('errText').textContent = seatLabel(seatCode) + '은 아직 배정된 학생이 없습니다.';
@@ -257,6 +256,11 @@
     const todayRec = await db.ref('records/' + todayKey() + '/' + seatStudent.sid).get();
     if (todayRec.exists()) {
       const rec = todayRec.val();
+      if (rec.status === 'invalid') {
+        curStudent = seatStudent;
+        showFinished(rec);
+        return;
+      }
       if (rec.status === 'ongoing') {
         // 순공 중 → 순공 화면으로 (일시정지/종료 선택 가능)
         curStudent = seatStudent;
@@ -381,10 +385,9 @@
   }
 
   async function startStudy() {
+    requireServerClock();
     // 시간대 확인
-    const now = new Date();
-    const h = now.getHours();
-    if (h < START_HOUR || h >= END_HOUR) {
+    if (!canStudyNow()) {
       showMsg('startMsg', '순공 인정 시간(07:00~22:00)이 아닙니다.', 'err');
       return;
     }
@@ -404,30 +407,28 @@
       codeVal = ''; renderCodeBoxes('startBoxes', '', 4);
       return;
     }
-    // 오늘 이미 순공한 기록이 있으면 그 시간을 보존 (하루 여러 번 순공 대응)
-    const prevRec = (await db.ref('records/' + todayKey() + '/' + curStudent.sid).get()).val();
-    let prevSec = 0;
-    if (prevRec && prevRec.status === 'done' && prevRec.durationSec) {
-      prevSec = prevRec.durationSec;
-    } else if (prevRec && prevRec.prevSec) {
-      prevSec = prevRec.prevSec;
-    }
-
-    // 기록 시작 (accumSec: 지금까지 공부한 시간, segStart: 현재 구간 시작)
-    const rec = {
-      sid: curStudent.sid,
-      name: curStudent.name,
-      seat: seatCode,
-      startAt: firebase.database.ServerValue.TIMESTAMP,
-      segStart: firebase.database.ServerValue.TIMESTAMP,
-      accumSec: 0,
-      status: 'ongoing',
-      prevSec: prevSec
-    };
-    await db.ref('records/' + todayKey() + '/' + curStudent.sid).set(rec);
-    // 방금 저장된 걸 다시 읽어 서버 시각 확보
-    const saved = (await db.ref('records/' + todayKey() + '/' + curStudent.sid).get()).val();
-    goStudy(saved);
+    const latestStudent = (await db.ref('students/' + curStudent.sid).get()).val();
+    if (!activeStudent(latestStudent) || latestStudent.seat !== seatCode) throw new Error('현재 참여자 또는 좌석 배정이 변경되었습니다. 선생님께 문의하세요.');
+    const date = todayKey();
+    const ref = db.ref('records/' + date + '/' + curStudent.sid);
+    const result = await ref.transaction(prev => {
+      requireServerClock();
+      if (!canStudyNow(date) || (prev && prev.status !== 'done')) return;
+      return {
+        sid: curStudent.sid, name: curStudent.name, seat: seatCode,
+        startAt: firebase.database.ServerValue.TIMESTAMP,
+        segStart: firebase.database.ServerValue.TIMESTAMP,
+        accumSec: 0, status: 'ongoing', prevSec: creditedSeconds(prev)
+      };
+    }, undefined, false);
+    if (!result.committed) throw new Error('이미 시작했거나 시작할 수 없는 기록입니다. 새로고침해 현재 상태를 확인해 주세요.');
+    // 트랜잭션 완료 스냅샷에는 서버 타임스탬프의 로컬 추정값이 남을 수 있다.
+    // 서버가 확정한 값을 읽고 다음 상태 전이의 비교 기준으로 사용한다.
+    const saved = (await ref.get()).val();
+    if (!saved) throw new Error('시작 기록을 확인하지 못했습니다. 다시 접속해 주세요.');
+    if (saved.status === 'ongoing') goStudy(saved);
+    else if (saved.status === 'paused') goPaused(saved);
+    else showFinished(saved);
   }
 
   // ===== 순공 중 화면 =====
@@ -437,35 +438,47 @@
     const accumSec = rec.accumSec || 0;
     const segStart = rec.segStart || rec.startAt;
     // 시작 시각 표시
-    const sd = new Date(rec.startAt);
-    const startStr = String(sd.getHours()).padStart(2,'0') + ':' + String(sd.getMinutes()).padStart(2,'0');
+    const sd = kstDate(rec.startAt);
+    const startStr = String(sd.getUTCHours()).padStart(2,'0') + ':' + String(sd.getUTCMinutes()).padStart(2,'0');
     $('timerSub').textContent = startStr + ' 시작';
     loadStudyStats();
     // 타이머: accumSec + (현재 구간 경과)
     if (timerInterval) clearInterval(timerInterval);
     const tick = () => {
-      const segElapsed = Math.floor((Date.now() - segStart) / 1000);
-      $('timerDisplay').textContent = fmtTimer(accumSec + segElapsed);
+      const segElapsed = Math.floor((serverNow() - segStart) / 1000);
+      $('timerDisplay').textContent = fmtTimer(Math.max(0, accumSec + segElapsed));
+      $('studyToday').textContent = fmtDuration(creditedSeconds(rec) + studySeconds(rec));
     };
     timerInterval = setInterval(tick, 1000);
     tick();
   }
 
   // ===== 일시정지 =====
-  async function pauseStudy() {
-    if (timerInterval) clearInterval(timerInterval);
-    const rec = curRec;
-    const segStart = rec.segStart || rec.startAt;
-    const segElapsed = Math.floor((Date.now() - segStart) / 1000);
-    const newAccum = (rec.accumSec || 0) + (segElapsed > 0 ? segElapsed : 0);
-    const updates = {};
-    updates['records/' + todayKey() + '/' + curStudent.sid + '/accumSec'] = newAccum;
-    updates['records/' + todayKey() + '/' + curStudent.sid + '/status'] = 'paused';
-    updates['records/' + todayKey() + '/' + curStudent.sid + '/pausedAt'] = firebase.database.ServerValue.TIMESTAMP;
-    await db.ref().update(updates);
-    const saved = (await db.ref('records/' + todayKey() + '/' + curStudent.sid).get()).val();
-    goPaused(saved);
+  async function changeStudyState(expectedStatus, nextStatus) {
+    requireServerClock();
+    const expected = curRec;
+    if (!expected || expected.status !== expectedStatus) throw new Error('현재 공부 상태를 확인해 주세요.');
+    const date = recordDate(expected);
+    const ref = db.ref('records/' + date + '/' + curStudent.sid);
+    const result = await ref.transaction(rec => {
+      requireServerClock();
+      if (!rec) return rec;
+      if (!sameRecordState(rec, expected)) return;
+      if (pastCutoff(date)) return { ...rec, status: 'invalid', durationSec: 0, endAt: firebase.database.ServerValue.TIMESTAMP };
+      if (!canStudyNow(date)) return;
+      if (nextStatus === 'paused') return { ...rec, accumSec: studySeconds(rec), status: 'paused', pausedAt: firebase.database.ServerValue.TIMESTAMP };
+      const next = { ...rec, status: 'ongoing', segStart: firebase.database.ServerValue.TIMESTAMP };
+      delete next.pausedAt;
+      return next;
+    }, undefined, false);
+    if (!result.committed) throw new Error('다른 화면에서 이미 변경된 기록입니다. 새로고침해 주세요.');
+    const saved = (await ref.get()).val();
+    if (!saved) throw new Error('변경한 기록을 확인하지 못했습니다. 다시 접속해 주세요.');
+    if (saved.status === 'invalid' || saved.status === 'done') showFinished(saved);
+    else if (saved.status === 'paused') goPaused(saved);
+    else goStudy(saved);
   }
+  async function pauseStudy() { await changeStudyState('ongoing', 'paused'); }
 
   // ===== 일시정지 화면 =====
   function goPaused(rec) {
@@ -477,119 +490,62 @@
   }
 
   // ===== 다시 시작 (재개) =====
-  async function resumeStudy() {
-    const updates = {};
-    updates['records/' + todayKey() + '/' + curStudent.sid + '/segStart'] = firebase.database.ServerValue.TIMESTAMP;
-    updates['records/' + todayKey() + '/' + curStudent.sid + '/status'] = 'ongoing';
-    updates['records/' + todayKey() + '/' + curStudent.sid + '/pausedAt'] = null;
-    await db.ref().update(updates);
-    const saved = (await db.ref('records/' + todayKey() + '/' + curStudent.sid).get()).val();
-    goStudy(saved);
-  }
+  async function resumeStudy() { await changeStudyState('paused', 'ongoing'); }
 
   async function loadStudyStats() {
-    // 누적 순위 계산
     const rank = await calcRank(curStudent.sid);
     $('studyRank').textContent = rank ? rank + '위' : '—';
-    $('studyToday').textContent = fmtDuration(curStudent.totalSec || 0);
   }
 
-  // ===== 종료 (좌석 재스캔 시 자동 호출) =====
+  // ===== 종료: 같은 시작 기록은 한 번만 완료 =====
   async function endStudy() {
-    if (!curRec) { showToast('순공 정보를 찾을 수 없습니다.'); return; }
+    if (!activeRecord(curRec)) { showToast('진행 중인 순공 기록이 없습니다.'); return; }
     if (!confirm('순공을 종료할까요?\n종료하면 오늘 공부 시간이 기록됩니다.')) return;
     await doEnd(curRec);
   }
 
-  async function doEnd(rec) {
-    show('secStudy');
-    const now = Date.now();
-    const nowDate = new Date(now);
-
-    // 현재까지 실제 공부한 시간 = accumSec + (진행 중이면 현재 구간)
-    let studySec = rec.accumSec || 0;
-    if (rec.status === 'ongoing') {
-      const segStart = rec.segStart || rec.startAt;
-      const segElapsed = Math.floor((now - segStart) / 1000);
-      if (segElapsed > 0) studySec += segElapsed;
-    }
-    // 오늘 이전 순공 시간(오전 등)과 합산
-    const prevSec = rec.prevSec || 0;
-    const todayTotal = prevSec + studySec;
-
-    // 22시(END_HOUR)를 넘겨서 종료하면 무효 처리 (퇴실 안 한 벌칙)
-    const isLate = nowDate.getHours() >= END_HOUR;
-
-    if (isLate) {
-      const updates = {};
-      updates['records/' + todayKey() + '/' + curStudent.sid + '/endAt'] = firebase.database.ServerValue.TIMESTAMP;
-      updates['records/' + todayKey() + '/' + curStudent.sid + '/durationSec'] = 0;
-      updates['records/' + todayKey() + '/' + curStudent.sid + '/status'] = 'invalid';
-      await db.ref().update(updates);
-
-      // 무효 안내 화면
-      $('studySeat').textContent = seatLabel(seatCode);
-      document.querySelector('#secStudy .badge').outerHTML = '<div class="badge wait" style="color:#FF8BA5;border-color:#5A2E38;">무효 처리</div>';
-      const card = $('timerDisplay').parentElement;
-      card.style.borderColor = '#9A3A4A';
-      card.querySelector('.st').textContent = '⚠️ 무효 처리됨';
-      card.querySelector('.st').style.color = '#FF8BA5';
-      $('timerDisplay').textContent = '00:00:00';
-      $('timerDisplay').style.color = '#FF8BA5';
-      $('timerDisplay').style.textShadow = 'none';
-      $('timerSub').textContent = '밤 10시를 넘겨 퇴실 → 오늘 기록 미인정';
-      const btn = document.querySelector('#secStudy .btn-amber');
-      if (btn) btn.style.display = 'none';
-      const btn2 = document.querySelector('#secStudy .btn-pink');
-      btn2.className = 'btn btn-ghost'; btn2.textContent = '🏆 랭킹 보기'; btn2.onclick = goRank; btn2.style.marginTop = '0';
-      $('studyRank').textContent = '—';
-      $('studyToday').textContent = '0분';
-      document.querySelector('#secStudy .note').textContent = '순공 인정 시간(밤 10시)이 지나 오늘 기록은 무효입니다. 다음부터는 꼭 시간 내에 퇴실하세요.';
-      if (timerInterval) clearInterval(timerInterval);
-      return;
-    }
-
-    // 정상 종료
-    const updates = {};
-    updates['records/' + todayKey() + '/' + curStudent.sid + '/endAt'] = firebase.database.ServerValue.TIMESTAMP;
-    updates['records/' + todayKey() + '/' + curStudent.sid + '/durationSec'] = todayTotal;
-    updates['records/' + todayKey() + '/' + curStudent.sid + '/status'] = 'done';
-    await db.ref().update(updates);
-    // 누적엔 이번 순공분(studySec)만 더함 (오전분 prevSec는 이미 반영됨)
-    await db.ref('students/' + curStudent.sid + '/totalSec').transaction(v => (v || 0) + studySec);
-
-    if (timerInterval) clearInterval(timerInterval);
-
-    // 종료 완료 화면
-    $('studySeat').textContent = seatLabel(seatCode);
-    document.querySelector('#secStudy .badge').outerHTML = '<div class="badge wait">종료됨</div>';
-    $('timerDisplay').parentElement.querySelector('.st').textContent = '오늘 순공 완료';
-    $('timerDisplay').textContent = fmtTimer(todayTotal);
-    let subText = '오늘 순수 공부 시간';
-    if (prevSec > 0) subText += ` (이전 ${fmtDuration(prevSec)} 포함)`;
-    $('timerSub').textContent = subText;
-    // 버튼 정리
-    const amberBtn = document.querySelector('#secStudy .btn-amber');
-    if (amberBtn) amberBtn.style.display = 'none';
-    const btn = document.querySelector('#secStudy .btn-pink');
-    btn.className = 'btn btn-ghost'; btn.textContent = '🏆 랭킹 보기'; btn.onclick = goRank; btn.style.marginTop = '0';
-    // 스탯 갱신
-    const freshTotal = (curStudent.totalSec || 0) + studySec;
-    curStudent.totalSec = freshTotal;
-    $('studyToday').textContent = fmtDuration(todayTotal);
-    const rank = await calcRank(curStudent.sid);
-    $('studyRank').textContent = rank ? rank + '위' : '—';
-    document.querySelector('#secStudy .note').textContent = '수고했어요! 오늘 순공이 기록되었습니다.';
+  async function doEnd(expected) {
+    requireServerClock();
+    const date = recordDate(expected);
+    const result = await db.ref('records/' + date + '/' + curStudent.sid).transaction(rec => {
+      requireServerClock();
+      if (!rec) return rec;
+      if (!activeRecord(rec) || !sameRecordState(rec, expected)) return;
+      const invalid = pastCutoff(date);
+      return {
+        ...rec, endAt: firebase.database.ServerValue.TIMESTAMP,
+        durationSec: invalid ? 0 : creditedSeconds(rec) + studySeconds(rec),
+        status: invalid ? 'invalid' : 'done'
+      };
+    }, undefined, false);
+    const saved = result.snapshot.val();
+    if (!result.committed || !saved) throw new Error('이미 종료되었거나 다른 화면에서 변경된 기록입니다. 새로고침해 주세요.');
+    showFinished(saved);
   }
 
-  // ===== 랭킹 계산 =====
+  function showFinished(rec) {
+    curRec = rec;
+    if (timerInterval) clearInterval(timerInterval);
+    show('secStudy');
+    const invalid = rec.status === 'invalid';
+    const total = creditedSeconds(rec);
+    document.querySelector('#secStudy .badge').textContent = invalid ? '무효 처리' : '종료됨';
+    $('timerDisplay').parentElement.querySelector('.st').textContent = invalid ? '해당 날짜 기록 미인정' : '오늘 순공 완료';
+    $('timerDisplay').textContent = fmtTimer(total);
+    $('timerSub').textContent = invalid ? recordDate(rec) + ' 기록: 인정 마감 시각을 지나 전체 무효입니다.' : '오늘 순수 공부 시간';
+    document.querySelector('#secStudy .btn-amber').style.display = 'none';
+    const btn = document.querySelector('#secStudy .btn-pink');
+    btn.textContent = '🏆 랭킹 보기'; btn.onclick = goRank;
+    $('studyToday').textContent = fmtDuration(total);
+    document.querySelector('#secStudy .note').textContent = invalid ? '다음부터는 밤 10시 전에 종료해 주세요.' : '수고했어요! 오늘 순공이 기록되었습니다.';
+    loadStudyStats();
+  }
+
   async function calcRank(sid) {
-    const snap = await db.ref('students').get();
-    if (!snap.exists()) return null;
-    const list = [];
-    snap.forEach(c => { const v = c.val(); list.push({ sid: v.sid, total: v.totalSec || 0 }); });
-    list.sort((a,b) => b.total - a.total);
-    const idx = list.findIndex(x => x.sid === sid);
+    const [stuSnap, recSnap] = await Promise.all([db.ref('students').get(), db.ref('records').get()]);
+    const list = studentsWithTotals(stuSnap.val(), recSnap.val()).filter(activeStudent);
+    list.sort((a,b) => b.totalSec - a.totalSec);
+    const idx = list.findIndex(s => s.sid === sid);
     return idx >= 0 ? idx + 1 : null;
   }
 

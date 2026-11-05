@@ -1,0 +1,163 @@
+{
+  "rules": {
+    ".read": "now < 4102444800000",
+    ".write": false,
+    "applications": {
+      ".read": true,
+      ".write": true,
+      "$sid": {
+        ".validate": "newData.hasChildren(['sid','name']) || !newData.exists()",
+        "sid": {
+          ".validate": "newData.isString() && newData.val().length <= 6"
+        },
+        "name": {
+          ".validate": "newData.isString() && newData.val().length <= 20"
+        },
+        "cls": {
+          ".validate": "newData.isString() || newData.val() == null"
+        },
+        "order": {
+          ".validate": "newData.isNumber() || newData.val() == null"
+        },
+        "appliedAt": {
+          ".validate": "newData.isNumber() || newData.val() == null"
+        },
+        "status": {
+          ".validate": "newData.isString() || newData.val() == null"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "students": {
+      ".read": true,
+      ".write": true,
+      "$sid": {
+        ".validate": "newData.hasChildren(['sid','name']) || !newData.exists()",
+        "sid": {
+          ".validate": "newData.isString() && newData.val().length <= 6"
+        },
+        "name": {
+          ".validate": "newData.isString() && newData.val().length <= 20"
+        },
+        "cls": {
+          ".validate": "newData.isString() || newData.val() == null"
+        },
+        "rank": {
+          ".validate": "newData.isNumber() || newData.val() == null"
+        },
+        "seat": {
+          ".validate": "(newData.isString() && newData.val().length <= 6) || newData.val() == null"
+        },
+        "pin": {
+          ".validate": "(newData.isString() && newData.val().length <= 8) || newData.val() == null"
+        },
+        "totalSec": {
+          ".validate": "newData.isNumber() || newData.val() == null"
+        },
+        "active": {
+          ".validate": "newData.isBoolean()"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "records": {
+      ".read": true,
+      ".write": true,
+      "$date": {
+        "$sid": {
+          "sid": {
+            ".validate": "newData.isString() && newData.val().length <= 6"
+          },
+          "name": {
+            ".validate": "newData.isString() || newData.val() == null"
+          },
+          "seat": {
+            ".validate": "newData.isString() || newData.val() == null"
+          },
+          "startAt": {
+            ".validate": "newData.isNumber() || newData.val() == null"
+          },
+          "segStart": {
+            ".validate": "newData.isNumber() || newData.val() == null"
+          },
+          "accumSec": {
+            ".validate": "newData.isNumber() || newData.val() == null"
+          },
+          "pausedAt": {
+            ".validate": "newData.isNumber() || newData.val() == null"
+          },
+          "endAt": {
+            ".validate": "newData.isNumber() || newData.val() == null"
+          },
+          "durationSec": {
+            ".validate": "newData.isNumber() || newData.val() == null"
+          },
+          "prevSec": {
+            ".validate": "newData.isNumber() || newData.val() == null"
+          },
+          "status": {
+            ".validate": "newData.isString() || newData.val() == null"
+          },
+          "fixedByTeacher": {
+            ".validate": "newData.isBoolean() || newData.val() == null"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    },
+    "dailyCode": {
+      ".read": true,
+      ".write": true,
+      "$date": {
+        ".validate": "newData.isString() || newData.isNumber() || newData.val() == null"
+      }
+    },
+    "settings": {
+      ".read": true,
+      ".write": true
+    },
+    "meta": {
+      ".read": true,
+      ".write": true
+    },
+    "rosters": {
+      ".read": true,
+      ".write": true,
+      "$date": {
+        ".validate": "newData.hasChild('capturedAt')",
+        "capturedAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "students": {
+          "$sid": {
+            ".validate": "newData.hasChildren(['sid','name'])",
+            "sid": {
+              ".validate": "newData.isString() && newData.val() == $sid && newData.val().length <= 6"
+            },
+            "name": {
+              ".validate": "newData.isString() && newData.val().length <= 20"
+            },
+            "cls": {
+              ".validate": "newData.isString()"
+            },
+            "seat": {
+              ".validate": "newData.isString() && newData.val().length <= 6"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,5 @@
+PASS: all 15 HTML pages load with a mocked backend
+PASS: actual UI login → start → pause → resume → finish counts 2 study hours, excludes 1 paused hour
+PASS: UI exposes failed save and permits a successful retry
+PASS: past-participant filter and historical attendance distinguish known absences from unknown rosters
+PASS: page actions wait for connected server time before initialization

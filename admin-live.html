@@ -139,7 +139,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script>
+<script type="application/x-soongong">
   const $ = (id) => document.getElementById(id);
   let students = [];
   let todayRecs = {};   // sid → 오늘 기록
@@ -148,9 +148,9 @@
 
   // 날짜 표시
   (function() {
-    const d = new Date();
+    const d = kstDate();
     const days = ['일','월','화','수','목','금','토'];
-    $('date').textContent = `${d.getMonth()+1}월 ${d.getDate()}일 (${days[d.getDay()]}) ${p2(d.getHours())}:${p2(d.getMinutes())}`;
+    $('date').textContent = `${d.getUTCMonth()+1}월 ${d.getUTCDate()}일 (${days[d.getUTCDay()]}) ${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())}`;
   })();
 
   function roomSeats(room) {
@@ -164,7 +164,7 @@
 
   // 오늘 코드 구독
   let codeAutoTried = false;
-  db.ref('dailyCode/' + todayKey()).on('value', snap => {
+  watchValue(db.ref('dailyCode/' + todayKey()), snap => {
     const code = snap.val();
     if (code) {
       $('codeVal').textContent = code;
@@ -175,7 +175,7 @@
       $('codeVal').className = 'code none';
       $('codeBtn').textContent = '코드 생성';
       // 코드가 없으면 자동 생성 (인정 시간대 7~22시, 한 번만 시도)
-      const h = new Date().getHours();
+      const h = kstDate().getUTCHours();
       if (!codeAutoTried && h >= 7 && h < 22) {
         codeAutoTried = true;
         const newCode = String(Math.floor(1000 + Math.random() * 9000));
@@ -186,11 +186,11 @@
     }
   });
 
-  function genCode() {
+  async function genCode() {
     const cur = $('codeVal').className.includes('none') ? false : true;
     if (cur && !confirm('오늘 코드를 새로 만들까요?\n이미 순공 중인 학생에는 영향 없지만, 새로 시작하는 학생은 새 코드를 써야 합니다.')) return;
     const code = String(Math.floor(1000 + Math.random() * 9000));
-    db.ref('dailyCode/' + todayKey()).set(code);
+    await db.ref('dailyCode/' + todayKey()).set(code);
     toast('오늘 코드: ' + code + ' (칠판에 적어주세요)');
   }
 
@@ -198,32 +198,20 @@
   $('loading').style.display = 'none';
   renderRoom();
 
-  // 학생 + 오늘 기록 구독
-  db.ref('students').on('value', snap => {
-    students = [];
-    snap.forEach(c => { students.push(c.val()); });
+  // 기록 변경 직후 집계와 실시간 현황을 함께 갱신한다.
+  watchStudyData((list, records) => {
+    students = list;
+    todayRecs = records[todayKey()] || {};
     render();
   });
-  const END_HOUR = 22;
-  db.ref('records/' + todayKey()).on('value', snap => {
-    todayRecs = {};
-    snap.forEach(c => { todayRecs[c.key] = c.val(); });
-    // 22시가 지났는데 아직 ongoing(퇴실 안 함)인 기록을 자동 무효 처리
-    const nowH = new Date().getHours();
-    if (nowH >= END_HOUR) {
-      Object.keys(todayRecs).forEach(sid => {
-        const rec = todayRecs[sid];
-        if (rec && (rec.status === 'ongoing' || rec.status === 'paused')) {
-          const updates = {};
-          updates['records/' + todayKey() + '/' + sid + '/status'] = 'invalid';
-          updates['records/' + todayKey() + '/' + sid + '/durationSec'] = 0;
-          updates['records/' + todayKey() + '/' + sid + '/endAt'] = firebase.database.ServerValue.TIMESTAMP;
-          db.ref().update(updates);
-        }
-      });
-    }
-    render();
-  });
+  maintainStaleRecords();
+  let visibleDate = todayKey();
+  setInterval(() => {
+    if (visibleDate === todayKey()) return;
+    visibleDate = todayKey();
+    // 날짜별 코드 구독도 함께 새로 연결한다.
+    location.reload();
+  }, 10000);
 
   function seatStatus(student) {
     const rec = todayRecs[student.sid];
@@ -299,19 +287,19 @@
 
     let details = '';
     if (rec && rec.startAt) {
-      const sd = new Date(rec.startAt);
-      details += row('시작', `${p2(sd.getHours())}:${p2(sd.getMinutes())}`);
+      const sd = kstDate(rec.startAt);
+      details += row('시작', `${p2(sd.getUTCHours())}:${p2(sd.getUTCMinutes())}`);
       if (rec.status === 'ongoing') {
         // 현재까지 순공 = accumSec + 현재 구간
         const segStart = rec.segStart || rec.startAt;
-        const cur = (rec.accumSec || 0) + Math.floor((Date.now() - segStart) / 1000);
+        const cur = (rec.accumSec || 0) + Math.floor((serverNow() - segStart) / 1000);
         details += row('진행 시간', fmtDuration(cur));
       } else if (rec.status === 'paused') {
         details += row('공부한 시간', fmtDuration(rec.accumSec || 0));
         details += row('상태', '점심·저녁 등으로 잠시 멈춤');
       } else if (rec.endAt) {
-        const ed = new Date(rec.endAt);
-        details += row('종료', `${p2(ed.getHours())}:${p2(ed.getMinutes())}`);
+        const ed = kstDate(rec.endAt);
+        details += row('종료', `${p2(ed.getUTCHours())}:${p2(ed.getUTCMinutes())}`);
         details += row('오늘 순공', fmtDuration(rec.durationSec || 0));
       }
     } else {
@@ -337,7 +325,7 @@
   // 현재까지 순공 초 (진행중이면 현재 구간 포함)
   function segNow(rec) {
     let s = rec.accumSec || 0;
-    if (rec.status === 'ongoing') { const ss = rec.segStart || rec.startAt; s += Math.floor((Date.now() - ss) / 1000); }
+    if (rec.status === 'ongoing') { const ss = rec.segStart || rec.startAt; s += Math.floor((serverNow() - ss) / 1000); }
     return s;
   }
   // 실시간 표기 h:mm:ss (1시간 미만이면 mm:ss)

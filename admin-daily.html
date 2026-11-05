@@ -154,48 +154,28 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script>
+<script type="application/x-soongong">
   const $ = (id) => document.getElementById(id);
   const DOW = ['일','월','화','수','목','금','토'];
   let students = [];
   let allRecords = {};   // dateKey → { sid → rec }
   let curDate = todayKey();
   let curRoom = 2;
+  let rosters = {};
+  let dayStudents = [];
+  let rosterKnown = false;
   let calY, calM;        // 달력 팝업이 보고 있는 연/월
 
   updateDateLabel();  // 데이터 로드 전에도 날짜부터 바로 표시
-  init();
-  async function init() {
-    db.goOnline();
-    const stuList = await new Promise((resolve) => {
-      db.ref('students').on('value', (snap) => {
-        const list = [];
-        snap.forEach(c => { list.push(c.val()); });
-        students = list;
-        resolve(list);
-        renderRoom();  // 학생 변동 시 다시 그림
-      });
-    });
-    const recSnap = await db.ref('records').get();
-    allRecords = {};
-    recSnap.forEach(dayNode => {
-      const day = {};
-      dayNode.forEach(r => { day[r.key] = r.val(); });
-      allRecords[dayNode.key] = day;
-    });
-    // 같은 데이터로 밀린 기록 정리 (records 다시 안 읽음) + 화면 데이터에도 반영
-    const invalidated = await sweepStaleRecords(recSnap);
-    invalidated.forEach(it => {
-      const d = allRecords[it.date];
-      if (d && d[it.sid]) { d[it.sid].status = 'invalid'; d[it.sid].durationSec = 0; d[it.sid].endAt = Date.now(); }
-    });
-    students = stuList;
+  watchStudyData((list, records) => {
+    students = list;
+    allRecords = records;
     $('loading').style.display = 'none';
-    // 데이터가 있는 가장 최근 날짜로 시작 (없으면 오늘)
-    const dates = Object.keys(allRecords).sort();
-    if (dates.length && !allRecords[curDate]) curDate = dates[dates.length - 1];
     renderRoom();
-  }
+  }, true);
+  watchValue(db.ref('rosters'), snap => { rosters = snap.val() || {}; renderRoom(); });
+  ensureTodayRoster();
+  maintainStaleRecords();
 
   function roomSeats(room) {
     const start = (room - 2) * 20 + 1;
@@ -219,7 +199,7 @@
     if (rec.status === 'invalid') return { cls: 'invalid', tm: '무효' };
     if (rec.status === 'ongoing' || rec.status === 'paused') {
       let s = rec.accumSec || 0;
-      if (rec.status === 'ongoing') { const ss = rec.segStart || rec.startAt; s += Math.floor((Date.now() - ss) / 1000); }
+      if (rec.status === 'ongoing') { const ss = rec.segStart || rec.startAt; s += Math.floor((serverNow() - ss) / 1000); }
       return { cls: rec.status === 'ongoing' ? 'studying' : 'paused', tm: fmtDayHM(s) };
     }
     return { cls: 'absent', tm: '결석' };
@@ -239,9 +219,12 @@
   function renderRoom() {
     updateDateLabel();
     const day = allRecords[curDate] || {};
+    const historical = studentsOnDate(curDate, rosters, allRecords, students);
+    dayStudents = historical.students;
+    rosterKnown = historical.known;
     // 요약 (좌석 배정된 학생 기준)
     let nDone = 0, nInv = 0, nAbs = 0;
-    students.forEach(s => {
+    dayStudents.forEach(s => {
       if (!s.seat) return;
       const rec = day[s.sid];
       if (rec && rec.status === 'done') nDone++;
@@ -251,33 +234,30 @@
     });
     $('cDone').textContent = nDone;
     $('cInvalid').textContent = nInv;
-    $('cAbsent').textContent = nAbs;
+    $('cAbsent').textContent = rosterKnown ? nAbs : '확인 불가';
 
     const seats = roomSeats(curRoom);
     let html = '';
     seats.forEach(seat => {
-      const student = students.find(s => s.seat === seat.code);
-      if (!student) {
-        html += `<div class="seat empty"><span class="no">${seat.num}번</span><span class="nm">빈자리</span></div>`;
+      const occupants = dayStudents.filter(s => s.seat === seat.code);
+      if (!occupants.length) {
+        html += `<div class="seat empty"><span class="no">${seat.num}번</span><span class="nm">${rosterKnown ? '빈자리' : '확인 불가'}</span></div>`;
       } else {
-        const info = dayCell(day[student.sid]);
-        html += `<div class="seat ${info.cls}" onclick="showDetail('${student.sid}','${seat.code}')">
-          <span class="no">${seat.num}번</span>
-          <span class="nm">${esc(student.name)}</span>
-          <span class="tm">${info.tm}</span></div>`;
+        // 같은 날 자리를 바꾼 경우에도 한 학생의 기록을 숨기지 않는다.
+        html += '<div>' + occupants.map(student => {
+          const info = dayCell(day[student.sid]);
+          return `<div class="seat ${info.cls}" onclick="showDetail('${student.sid}','${seat.code}')">
+            <span class="no">${seat.num}번</span><span class="nm">${esc(student.name)}</span><span class="tm">${info.tm}</span></div>`;
+        }).join('') + '</div>';
       }
     });
     $('roomView').innerHTML =
-      `<div class="room"><div class="rhd"><span class="nm">${curRoom}실</span><span class="st">순공 ${countRoomDone(seats, day)}명</span></div><div class="grid">${html}</div></div>`;
+      `<p style="font-size:12px;color:#A8A8B4;margin:10px 0;">${rosterKnown ? '당시 참여 명단 기준 · 출석자는 기록에 저장된 좌석 표시' : '당시 명단이 없어 기록이 있는 학생만 표시합니다. 결석 여부는 알 수 없습니다.'}</p><div class="room"><div class="rhd"><span class="nm">${curRoom}실</span><span class="st">순공 ${countRoomDone(seats, day)}명</span></div><div class="grid">${html}</div></div>`;
   }
 
   function countRoomDone(seats, day) {
-    let n = 0;
-    seats.forEach(seat => {
-      const student = students.find(s => s.seat === seat.code);
-      if (student) { const rec = day[student.sid]; if (rec && rec.status === 'done') n++; }
-    });
-    return n;
+    const codes = new Set(seats.map(s => s.code));
+    return dayStudents.filter(s => codes.has(s.seat) && day[s.sid]?.status === 'done').length;
   }
 
   // Date 객체 → 로컬(한국) 기준 YYYY-MM-DD 키
@@ -333,17 +313,18 @@
 
   // ===== 좌석 상세 =====
   function showDetail(sid, code) {
-    const student = students.find(s => s.sid === sid);
+    const student = dayStudents.find(s => s.sid === sid);
+    if (!student) return;
     const rec = (allRecords[curDate] || {})[sid];
     const info = dayCell(rec);
     const label = { done: ['순공 완료','#241D08','#E0C24A'], studying: ['순공 중','#16281F','#6FD6A8'], paused: ['잠시 멈춤','#12202E','#7FC0E8'], invalid: ['무효','#1A1A1F','#A8A8B4'], absent: ['결석','#2A1418','#D87A8A'] }[info.cls];
     let details = '';
     if (rec && rec.startAt) {
-      const sd = new Date(rec.startAt);
-      details += row('시작', `${p2(sd.getHours())}:${p2(sd.getMinutes())}`);
+      const sd = kstDate(rec.startAt);
+      details += row('시작', `${p2(sd.getUTCHours())}:${p2(sd.getUTCMinutes())}`);
       if (rec.endAt && (rec.status === 'done' || rec.status === 'invalid')) {
-        const ed = new Date(rec.endAt);
-        details += row('종료', `${p2(ed.getHours())}:${p2(ed.getMinutes())}`);
+        const ed = kstDate(rec.endAt);
+        details += row('종료', `${p2(ed.getUTCHours())}:${p2(ed.getUTCMinutes())}`);
       }
       if (rec.status === 'done') details += row('순공 시간', fmtDuration(rec.durationSec || 0));
       else if (rec.status === 'invalid') details += row('처리', '무효 (퇴실 안 함 / 시간 초과)');

@@ -162,12 +162,13 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script>
+<script type="application/x-soongong">
   const $ = (id) => document.getElementById(id);
   let applyOpen = false;
 
   // 종료 안 하고 넘어간 지난 기록을 무효로 정리 (아침에 메뉴만 열어도 처리됨)
-  sweepStaleRecords();
+  maintainStaleRecords();
+  ensureTodayRoster();
 
   // 신청 QR 생성
   const applyUrl = location.origin + location.pathname.replace(/[^/]*$/, '') + 'apply.html';
@@ -176,17 +177,17 @@
   $('applyUrl').textContent = applyUrl;
 
   // 상태 구독
-  db.ref('applications').on('value', s => { $('stApply').textContent = (s.numChildren()) + '명'; });
-  db.ref('students').on('value', s => { $('stConfirm').textContent = s.numChildren() + '명'; });
+  watchValue(db.ref('applications'), s => { $('stApply').textContent = (s.numChildren()) + '명'; });
+  watchValue(db.ref('students'), s => { $('stConfirm').textContent = Object.values(s.val() || {}).filter(activeStudent).length + '명'; });
   let codeAutoTried = false;
-  db.ref('dailyCode/' + todayKey()).on('value', s => {
+  watchValue(db.ref('dailyCode/' + todayKey()), s => {
     const c = s.val();
     if (c) {
       $('stCode').textContent = c;
       $('stCode').style.color = '#CFE0FF';
     } else {
       // 코드가 없으면 자동 생성 (인정 시간대 7~22시, 한 번만)
-      const h = new Date().getHours();
+      const h = kstDate().getUTCHours();
       if (!codeAutoTried && h >= 7 && h < 22) {
         codeAutoTried = true;
         const newCode = String(Math.floor(1000 + Math.random() * 9000));
@@ -202,7 +203,7 @@
       }
     }
   });
-  db.ref('settings/applyOpen').on('value', s => {
+  watchValue(db.ref('settings/applyOpen'), s => {
     applyOpen = s.val() === true;
     renderToggle();
   });
@@ -212,7 +213,7 @@
       ? `<button class="on-btn" onclick="toggleApply()">● 신청 받는 중 (누르면 마감)</button>`
       : `<button class="off-btn" onclick="toggleApply()">○ 마감됨 (누르면 신청 받기)</button>`;
   }
-  function toggleApply() { db.ref('settings/applyOpen').set(!applyOpen); }
+  function toggleApply() { return db.ref('settings/applyOpen').set(!applyOpen); }
 
   // ===== 전체 초기화 =====
   const RESET_PW = '0000';  // 관리 비밀번호
@@ -264,6 +265,7 @@
           'students': null,
           'records': null,
           'meta': null,
+          'rosters': null,
           'dailyCode': null,
           'settings/applyOpen': false
         };

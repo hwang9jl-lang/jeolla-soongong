@@ -171,11 +171,12 @@
 
   <div class="summary">
     <div class="sum-card"><div class="n n-apply" id="cntApply">0</div><div class="t">신청</div></div>
-    <div class="sum-card"><div class="n n-confirm" id="cntConfirm">0</div><div class="t">확정</div></div>
+    <div class="sum-card"><div class="n n-confirm" id="cntConfirm">0</div><div class="t">확정후보</div></div>
     <div class="sum-card"><div class="n n-reject" id="cntReject">0</div><div class="t">탈락</div></div>
     <div class="sum-card"><div class="n n-wait" id="cntWait">0</div><div class="t">대기</div></div>
   </div>
 
+  <p style="font-size:12px;color:#A8A8B4;margin:12px 0;line-height:1.6;">신청 이력은 참여 확정 후에도 남습니다. 현재 공부 상태는 메뉴의 실시간 현황에서 확인하세요.</p>
   <div class="search-row">
     <input id="search" type="text" placeholder="이름 검색" oninput="render()">
   </div>
@@ -194,12 +195,14 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script>
+<script type="application/x-soongong">
   const $ = (id) => document.getElementById(id);
   const CAPACITY = 60;
   let apps = [];         // 신청 목록 (배열)
   let applyOpen = false;
   let curFilter = 'all';
+  let participants = {};
+  let participantsLoaded = false;
 
   // 필터 버튼 생성 (전체 + 1~10반)
   (function makeFilters() {
@@ -218,7 +221,7 @@
   }
 
   // 신청 스위치 상태 실시간 구독
-  db.ref('settings/applyOpen').on('value', (snap) => {
+  watchValue(db.ref('settings/applyOpen'), (snap) => {
     applyOpen = snap.val() === true;
     updateSwitch();
   });
@@ -229,13 +232,14 @@
     $('switchSt').className = 'st ' + (applyOpen ? 'open' : 'closed');
   }
 
-  function toggleApply() {
-    db.ref('settings/applyOpen').set(!applyOpen);
-    toast(!applyOpen ? '신청을 받기 시작합니다' : '신청을 마감합니다');
+  async function toggleApply() {
+    const nextOpen = !applyOpen;
+    await db.ref('settings/applyOpen').set(nextOpen);
+    toast(nextOpen ? '신청을 받기 시작합니다' : '신청을 마감합니다');
   }
 
   // 신청 목록 실시간 구독
-  db.ref('applications').on('value', (snap) => {
+  watchValue(db.ref('applications'), (snap) => {
     $('loading').style.display = 'none';
     apps = [];
     snap.forEach((child) => {
@@ -245,6 +249,23 @@
     apps.sort((a, b) => (a.order || 0) - (b.order || 0));
     render();
   });
+
+  watchValue(db.ref('students'), snap => {
+    participants = snap.val() || {};
+    participantsLoaded = true;
+    render();
+  });
+
+  function applicationStatus(a, waiting) {
+    if (!participantsLoaded) return '참여 상태 확인 중';
+    const student = participants[a.sid];
+    if (activeStudent(student)) {
+      const assigned = student.seat ? seatLabel(student.seat) : '좌석 미배정';
+      return (a.status === 'rejected' ? '탈락 예정 · 명단 재확정 필요 · ' : '') + '참여 확정 · ' + assigned;
+    }
+    if (a.status === 'rejected') return '탈락';
+    return waiting ? '대기' : '확정후보 · 아직 미확정';
+  }
 
   function render() {
     // 통계
@@ -308,7 +329,7 @@
       } else {
         actBtn = `<div class="act act-reject" onclick="reject('${a.sid}')">탈락</div>`;
       }
-      const statusTxt = isRejected ? ' · 탈락' : (isWaiting ? ' · 대기' : '');
+      const statusTxt = ' · ' + esc(applicationStatus(a, isWaiting));
 
       list.insertAdjacentHTML('beforeend', `
         <div class="row ${cls}">
@@ -327,13 +348,13 @@
   }
 
   // 탈락 처리
-  function reject(sid) {
-    db.ref('applications/' + sid + '/status').set('rejected');
+  async function reject(sid) {
+    await db.ref('applications/' + sid + '/status').set('rejected');
     toast('탈락 처리했습니다');
   }
   // 되살리기 (탈락 → 대기 상태로, 순번은 유지)
-  function restore(sid) {
-    db.ref('applications/' + sid + '/status').set('waiting');
+  async function restore(sid) {
+    await db.ref('applications/' + sid + '/status').set('waiting');
     toast('되살렸습니다');
   }
   // 승급 (대기자를 커트라인 위로 = 순번을 앞으로 당김)
@@ -371,7 +392,7 @@
                        .sort((a,b) => (a.order||0) - (b.order||0));
     const finalists = active.slice(0, CAPACITY);
 
-    if (finalists.length === 0) { toast('확정할 신청자가 없습니다'); return; }
+    if (finalists.length === 0 && !confirm('확정할 학생이 없습니다. 기존 참여자를 모두 비활성화할까요? 과거 기록은 보존됩니다.')) return;
 
     // 이미 students에 있는지 확인해서, 기존 배정 좌석/PIN은 보존
     const existSnap = await db.ref('students').get();
@@ -380,22 +401,24 @@
     const updates = {};
     const finalistSids = new Set(finalists.map(f => f.sid));
     finalists.forEach((f, idx) => {
-      const prev = existing[f.sid] || {};
-      updates['students/' + f.sid] = {
-        sid: f.sid,
-        name: f.name,
-        cls: f.cls,
-        rank: idx + 1,
-        seat: prev.seat || null,
-        pin: prev.pin || null,
-        totalSec: prev.totalSec || 0
-      };
+      const prev = existing[f.sid];
+      if (!prev) {
+        updates['students/' + f.sid] = { sid: f.sid, name: f.name, cls: f.cls, rank: idx + 1, active: true };
+      } else {
+        for (const [field, value] of Object.entries({ name: f.name, cls: f.cls, rank: idx + 1, active: true })) {
+          updates['students/' + f.sid + '/' + field] = value;
+        }
+        // 재참여 학생의 이전 좌석을 자동으로 다시 점유하지 않는다.
+        if (!activeStudent(prev)) updates['students/' + f.sid + '/seat'] = null;
+      }
     });
     Object.keys(existing).forEach(sid => {
-      if (!finalistSids.has(sid)) updates['students/' + sid] = null;
+      if (!finalistSids.has(sid)) {
+        updates['students/' + sid + '/active'] = false;
+        updates['students/' + sid + '/seat'] = null;
+      }
     });
-
-    await db.ref().update(updates);
+    await updateStudentsWithRoster(updates);
     toast(finalists.length + '명 확정 완료');
     setTimeout(() => { window.location.replace('admin-assign.html'); }, 700);
   }
@@ -410,7 +433,7 @@
       if (!isRejected) activeRank++;
       const rank = isRejected ? '' : activeRank;
       const isWaiting = !isRejected && activeRank > CAPACITY;
-      const status = isRejected ? '탈락' : (isWaiting ? '대기' : '확정후보');
+      const status = applicationStatus(a, isWaiting);
       rows.push([rank, a.name, a.sid, a.cls + '반', a.appliedAt ? fmtFull(a.appliedAt) : '', status]);
     });
     const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\r\n');
@@ -427,20 +450,20 @@
 
   // 유틸
   function fmtDate(ts) {
-    const d = new Date(ts);
-    const mm = String(d.getMonth()+1).padStart(2,'0');
-    const dd = String(d.getDate()).padStart(2,'0');
-    const hh = String(d.getHours()).padStart(2,'0');
-    const mi = String(d.getMinutes()).padStart(2,'0');
+    const d = kstDate(ts);
+    const mm = String(d.getUTCMonth()+1).padStart(2,'0');
+    const dd = String(d.getUTCDate()).padStart(2,'0');
+    const hh = String(d.getUTCHours()).padStart(2,'0');
+    const mi = String(d.getUTCMinutes()).padStart(2,'0');
     return `${mm}/${dd} ${hh}:${mi}`;
   }
   function fmtFull(ts) {
-    const d = new Date(ts);
-    const y = d.getFullYear();
-    const mm = String(d.getMonth()+1).padStart(2,'0');
-    const dd = String(d.getDate()).padStart(2,'0');
-    const hh = String(d.getHours()).padStart(2,'0');
-    const mi = String(d.getMinutes()).padStart(2,'0');
+    const d = kstDate(ts);
+    const y = d.getUTCFullYear();
+    const mm = String(d.getUTCMonth()+1).padStart(2,'0');
+    const dd = String(d.getUTCDate()).padStart(2,'0');
+    const hh = String(d.getUTCHours()).padStart(2,'0');
+    const mi = String(d.getUTCMinutes()).padStart(2,'0');
     return `${y}-${mm}-${dd} ${hh}:${mi}`;
   }
   function esc(s) { return String(s).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])); }

@@ -132,7 +132,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script>
+<script type="application/x-soongong">
   const $ = (id) => document.getElementById(id);
   const CAPACITY = 60;
   let confirmed = [];   // 확정 학생 목록 (students 노드)
@@ -156,9 +156,9 @@
 
   // 확정 학생 로드: 실시간 구독(on)
   db.goOnline();
-  db.ref('students').on('value', (snap) => {
+  watchValue(db.ref('students'), (snap) => {
     confirmed = [];
-    snap.forEach((child) => { confirmed.push(child.val()); });
+    snap.forEach((child) => { if (activeStudent(child.val())) confirmed.push(child.val()); });
     $('loading').style.display = 'none';
     renderPool();
     renderRoom();
@@ -221,7 +221,7 @@
   function assignSeat(code) {
     if (!selectedSid) { toast('먼저 위에서 학생을 선택하세요'); return; }
     const sid = selectedSid;
-    db.ref('students/' + sid + '/seat').set(code).then(() => {
+    return updateStudentsWithRoster({ ['students/' + sid + '/seat']: code }).then(() => {
       const s = confirmed.find(x => x.sid === sid);
       toast(`${s.name} → ${seatLabel(code)} 배정`);
       selectedSid = null;
@@ -241,8 +241,9 @@
   function closeModal() { $('modal').classList.remove('show'); emptyTarget = null; }
   function confirmEmpty() {
     if (!emptyTarget) return;
-    db.ref('students/' + emptyTarget.sid + '/seat').remove().then(() => {
-      toast(emptyTarget.name + ' 자리를 비웠습니다');
+    const target = emptyTarget;
+    return updateStudentsWithRoster({ ['students/' + target.sid + '/seat']: null }).then(() => {
+      toast(target.name + ' 자리를 비웠습니다');
       closeModal();
     });
   }

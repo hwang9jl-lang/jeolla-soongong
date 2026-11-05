@@ -71,6 +71,7 @@
   </div>
 
   <div class="search-row"><input id="search" placeholder="이름 검색" oninput="render()"></div>
+  <label style="display:block;margin:12px 0;font-size:13px;"><input id="includePast" type="checkbox" onchange="render()"> 과거 참여자 포함 (엑셀에도 적용)</label>
   <div class="sort-row">
     <button class="sbtn active" data-s="total" onclick="setSort('total')">누적순</button>
     <button class="sbtn" data-s="week" onclick="setSort('week')">이번주</button>
@@ -89,42 +90,21 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script>
+<script type="application/x-soongong">
   const $ = (id) => document.getElementById(id);
   let students = [];
   let allRecords = {};   // dateKey → { sid → rec }
   let stats = {};        // sid → { total, week, days, invalid, records: [{date, rec}] }
   let curSort = 'total';
 
-  init();
-  async function init() {
-    db.goOnline();
-    // students는 구독으로, records는 get으로 (records는 양이 많아 1회 로드)
-    const stuList = await new Promise((resolve) => {
-      db.ref('students').on('value', (snap) => {
-        const list = [];
-        snap.forEach(c => { list.push(c.val()); });
-        resolve(list);
-      });
-    });
-    const recSnap = await db.ref('records').get();
-    students = stuList;
-    allRecords = {};
-    recSnap.forEach(dayNode => {
-      const day = {};
-      dayNode.forEach(r => { day[r.key] = r.val(); });
-      allRecords[dayNode.key] = day;
-    });
-    // 같은 데이터로 밀린 기록 정리 (records 다시 안 읽음) + 집계 전에 화면 데이터에도 반영
-    const invalidated = await sweepStaleRecords(recSnap);
-    invalidated.forEach(it => {
-      const d = allRecords[it.date];
-      if (d && d[it.sid]) { d[it.sid].status = 'invalid'; d[it.sid].durationSec = 0; d[it.sid].endAt = Date.now(); }
-    });
+  watchStudyData((list, records) => {
+    students = list;
+    allRecords = records;
     computeStats();
     $('loading').style.display = 'none';
     render();
-  }
+  }, true);
+  maintainStaleRecords();
 
   function computeStats() {
     const today = todayKey();
@@ -136,9 +116,9 @@
         if (!stats[sid]) return;
         const rec = day[sid];
         stats[sid].records.push({ date, rec });
-        if (rec.status === 'done' && rec.durationSec) {
+        if (creditedSeconds(rec) > 0) {
           stats[sid].days++;
-          if (isSameWeek(date, today)) stats[sid].week += rec.durationSec;
+          if (isSameWeek(date, today)) stats[sid].week += creditedSeconds(rec);
         }
         if (rec.status === 'invalid') stats[sid].invalid++;
       });
@@ -151,9 +131,13 @@
     render();
   }
 
+  function visibleStudents() {
+    return students.filter(s => $('includePast').checked || activeStudent(s));
+  }
+
   function render() {
     const kw = $('search').value.trim();
-    let arr = students.map(s => ({ s, st: stats[s.sid] || {total:0,week:0,days:0,invalid:0} }));
+    let arr = visibleStudents().map(s => ({ s, st: stats[s.sid] || {total:0,week:0,days:0,invalid:0} }));
     // 정렬
     arr.sort((a,b) => {
       if (curSort === 'total') return b.st.total - a.st.total;
@@ -177,7 +161,7 @@
       const mainVal = curSort === 'week' ? st.week : st.total;
       html += `<div class="row ${cls}" onclick="showDetail('${s.sid}')">
         <div class="rk">${rank}</div>
-        <div class="info"><div class="nm">${esc(s.name)}<span class="sub">${s.sid} · ${seatLabel(s.seat||'')}</span></div></div>
+        <div class="info"><div class="nm">${esc(s.name)}${activeStudent(s) ? '' : ' · 과거 참여자'}<span class="sub">${s.sid} · ${seatLabel(s.seat||'')}</span></div></div>
         <div class="stat"><div class="big">${fmtDuration(mainVal)}</div><div class="sub">${st.days}일 · 무효 ${st.invalid}</div></div>
       </div>`;
     });
@@ -195,7 +179,7 @@
       if (isOng) timeStr = '진행 중';
       else if (isInv) timeStr = '무효';
       else timeStr = fmtDuration(rec.durationSec || 0);
-      const startStr = rec.startAt ? `${p2(new Date(rec.startAt).getHours())}:${p2(new Date(rec.startAt).getMinutes())}` : '';
+      const startStr = rec.startAt ? kstClock(rec.startAt) : '';
       const fixBtn = isInv ? `<button class="fix" onclick="event.stopPropagation();fixInvalid('${date}','${sid}')">인정</button>` : '';
       dayRows += `<div class="day-row ${isInv?'invalid':''}">
         <span class="d">${date.slice(5)} <span style="color:#5A5A6A;font-size:11px;">${startStr}</span></span>
@@ -235,23 +219,22 @@
     const m = parseInt(mins, 10);
     if (isNaN(m) || m <= 0) { toast('올바른 분 단위 숫자를 입력하세요'); return; }
     const sec = m * 60;
-    const updates = {};
-    updates['records/' + date + '/' + sid + '/status'] = 'done';
-    updates['records/' + date + '/' + sid + '/durationSec'] = sec;
-    updates['records/' + date + '/' + sid + '/fixedByTeacher'] = true;
-    await db.ref().update(updates);
-    // 누적 반영
-    await db.ref('students/' + sid + '/totalSec').transaction(v => (v||0) + sec);
+    const result = await db.ref('records/' + date + '/' + sid).transaction(current => {
+      if (!current) return current;
+      if (current.status !== 'invalid') return;
+      return { ...current, status: 'done', durationSec: sec, fixedByTeacher: true };
+    }, undefined, false);
+    if (!result.committed || !result.snapshot.val()) throw new Error('이미 처리되었거나 삭제된 기록입니다. 새로고침해 주세요.');
     toast('인정 처리했습니다 (' + fmtDuration(sec) + ')');
     closeModal();
-    await init();
   }
 
   function exportExcel() {
-    if (students.length === 0) { toast('학생이 없습니다'); return; }
+    const selected = visibleStudents();
+    if (selected.length === 0) { toast('표시할 학생이 없습니다'); return; }
     // 상세: 학생별 날짜별 기록 전체
     const rows = [['이름','학번','소속반','좌석','날짜','시작','종료','순공시간(분)','상태']];
-    students.forEach(s => {
+    selected.forEach(s => {
       const st = stats[s.sid];
       if (!st.records.length) {
         rows.push([s.name, s.sid, s.cls+'반', seatLabel(s.seat||''), '', '', '', '', '기록없음']);
@@ -261,7 +244,7 @@
           const end = rec.endAt ? fmtClock(rec.endAt) : '';
           const min = rec.durationSec ? Math.round(rec.durationSec/60) : '';
           const stt = rec.status==='done'?'정상':(rec.status==='invalid'?'무효':(rec.status==='ongoing'?'진행중':(rec.status==='paused'?'멈춤':'')));
-          rows.push([s.name, s.sid, s.cls+'반', seatLabel(s.seat||''), date, start, end, min, stt]);
+          rows.push([rec.name || s.name, s.sid, s.cls+'반', seatLabel(rec.seat||''), date, start, end, min, stt]);
         });
       }
     });
@@ -273,7 +256,7 @@
     toast('엑셀 파일을 저장했습니다');
   }
 
-  function fmtClock(ts) { const d = new Date(ts); return p2(d.getHours())+':'+p2(d.getMinutes()); }
+  function fmtClock(ts) { const d = kstDate(ts); return p2(d.getUTCHours())+':'+p2(d.getUTCMinutes()); }
   function esc(s) { return String(s).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])); }
   function p2(n) { return String(n).padStart(2, '0'); }
   let toastTimer;

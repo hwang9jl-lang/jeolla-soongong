@@ -53,7 +53,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script>
+<script type="application/x-soongong">
   const $ = (id) => document.getElementById(id);
   ['sid','pin'].forEach(id => $(id).addEventListener('input', function(){ this.value = this.value.replace(/[^0-9]/g,''); }));
 
@@ -64,6 +64,7 @@
     const snap = await db.ref('students/' + sid).get();
     if (!snap.exists()) { showErr('참여자 명단에 없는 학번입니다.'); return; }
     const s = snap.val();
+    if (!activeStudent(s)) { showErr('현재 참여자가 아닙니다. 과거 기록은 선생님께 문의하세요.'); return; }
     if (!s.pin) { showErr('아직 PIN을 설정하지 않았습니다.\n순공실에서 자리 QR로 먼저 시작해 주세요.'); return; }
     if (s.pin !== pin) { showErr('PIN이 올바르지 않습니다.'); return; }
     location.href = 'rank.html?sid=' + sid;

@@ -1,0 +1,31 @@
+{
+  "checkedAtKST": "2026-11-05T09:34:12.763150+09:00",
+  "baselineCommit": "028230a94d14d1bf259f0adf2cd47fb23dfdff3a",
+  "lastPreparedRelease": "20261104-150430-KST/soongong-deploy.zip",
+  "lastPreparedReleaseSha256": "948473466c983069db64cdc4c59f9b79d6d983517a074ce73b09567acfb69b9a",
+  "comparison": "All 22 source files match the last prepared release byte for byte. This does not verify the live Cloudflare deployment.",
+  "files": {
+    "admin-apply.html": "dedde5c653c8bd21696c2ec73473cee0c3f67202c90299d0005f7a08a4e1c141",
+    "admin-assign.html": "331da5b2f9f07fb3ecbf3751dd66d8230f1f4a15a7c560d583b6c0b01fbb7298",
+    "admin-codes.html": "df3c62e0874c44f40c0a301367ccbf5221d0f3f53369c16e869fa7e895e33a5c",
+    "admin-daily.html": "8f195d78506ca02bf97a0604307956eecf398e6e6049f3fcbf5ea0a2eb3d4c7a",
+    "admin-live.html": "9ca99b6f1b6628f505dd6ef6df121cdda4562baf5e3ada1d183e2555d3fcdd87",
+    "admin-qr.html": "8b0f1a3da96996e3051f97d612a56782a0e37cdcd4c24054b7548c6842fd9a7d",
+    "admin-records.html": "eb5640e31a3b0bea0c3133a082ddb77f0d8212be48744df3236b8b7263d74bd0",
+    "admin-seatchart.html": "76a2b0d8cf3a238fe2802f439abd25de2cd8c31b148019ed77e549ab987ce47c",
+    "admin.html": "7cc9e393524ebee6f99a1b3fa92ad5269328980489ee3dca2a9c9108d19d64bc",
+    "apply-qr.html": "6e997b581118438111974c48c3cc247e2e4a2d930e231da9d4042edfead7b2f9",
+    "apply.html": "c0a8bc0fb50c24dbc5e509adb04f831a5010b3451c4d99353ef0d51632296473",
+    "firebase-config.js": "dafdb9e5cc96144969319e592ecd0d17efa9a9af5e2edab08011287c6771ade3",
+    "icon-192.png": "0c8a9c978b8fdd220fa444219d29bd8294719a3bc18351c4528b398b4e3aad5a",
+    "icon-512.png": "afa7d6456dd8205d4df1149362e4e409a62e134f831aa1d53a6bb238aa174011",
+    "icon-admin-192.png": "85bc2928c6635cd9b3bebbd3dbf98bc0ca7c011c6aa8b6f8ffc529e5f0b429ed",
+    "icon-admin-512.png": "ca2a1462e9e7296d4eeb8c7a4208128003773d0646875e32afa508e4e1ec9b49",
+    "index.html": "a5fb8553dafe1744326b90a3a6f9d8d8f11486917d037f4b952fc2f0a00dc51d",
+    "manifest-admin.json": "9f7c8b76289e6280714bf43a3d35403027de9c64eed48f87e4a543d447e03736",
+    "manifest.json": "df1ae44105ae979713f10c7fc3347417ef97e5e0cfca0a58ce8d22b2bdd734fd",
+    "rank.html": "889444d3c97e883486265e7ce02215dbb1740a3e2f24c324b498536f115da466",
+    "seat.html": "ea29a454ab62682159b595ebf9721be17b34694195477e5f2c0eee3fe129f55e",
+    "student-guide.html": "525fb806b2a375c4da0560b623791ebf48c537398b99e4f827674a379021d66c"
+  }
+}

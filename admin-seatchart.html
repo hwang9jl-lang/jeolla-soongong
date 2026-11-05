@@ -80,7 +80,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script>
+<script type="application/x-soongong">
   const $ = (id) => document.getElementById(id);
   let students = [];
   let curRoom = 2;
@@ -95,9 +95,9 @@
   }
 
   db.goOnline();
-  db.ref('students').on('value', (snap) => {
+  watchValue(db.ref('students'), (snap) => {
     students = [];
-    snap.forEach((child) => { students.push(child.val()); });
+    snap.forEach((child) => { if (activeStudent(child.val())) students.push(child.val()); });
     $('loading').style.display = 'none';
     render();
   });
@@ -137,8 +137,8 @@
       }
     }
 
-    const today = new Date();
-    const dateStr = `${today.getFullYear()}. ${today.getMonth()+1}. ${today.getDate()}`;
+    const today = kstDate();
+    const dateStr = `${today.getUTCFullYear()}. ${today.getUTCMonth()+1}. ${today.getUTCDate()}`;
 
     return `<div class="room-sheet">
       <div class="rs-head">

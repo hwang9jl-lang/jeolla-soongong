@@ -1,0 +1,9 @@
+artifacts/
+node_modules/
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+firebase-debug.log
+firebase-debug.*.log

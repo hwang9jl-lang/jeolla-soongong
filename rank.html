@@ -114,7 +114,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script>
+<script type="application/x-soongong">
   const $ = (id) => document.getElementById(id);
   const params = new URLSearchParams(location.search);
   const mySid = params.get('sid');
@@ -123,58 +123,35 @@
   let weekTotals = {};  // sid → 이번주 초
   let curTab = 'week';
 
-  init();
-  async function init() {
-    db.goOnline();
-    // 학생 전체는 구독으로 확실히, 이번주 기록은 get으로
-    const stuList = await new Promise((resolve) => {
-      db.ref('students').on('value', (snap) => {
-        const list = [];
-        snap.forEach(c => { list.push(c.val()); });
-        resolve(list);
-      });
-    });
-    const recSnap = await db.ref('records').get();
-
-    students = stuList;
-
-    // 이번주 순공 시간 합산
+  watchStudyData((list, records) => {
+    students = list;
     const today = todayKey();
     const todaySec = {};
     weekTotals = {};
-    recSnap.forEach(dayNode => {
-      const dateKey = dayNode.key;
-      const inWeek = isSameWeek(dateKey, today);
-      dayNode.forEach(rec => {
-        const r = rec.val();
-        if (r.status === 'done' && r.durationSec) {
-          if (inWeek) weekTotals[r.sid] = (weekTotals[r.sid] || 0) + r.durationSec;
-          if (dateKey === today) todaySec[r.sid] = (todaySec[r.sid] || 0) + r.durationSec;
-        }
+    Object.entries(records).forEach(([date, day]) => {
+      Object.entries(day).forEach(([sid, rec]) => {
+        const sec = creditedSeconds(rec);
+        if (isSameWeek(date, today)) weekTotals[sid] = (weekTotals[sid] || 0) + sec;
+        if (date === today) todaySec[sid] = (todaySec[sid] || 0) + sec;
       });
     });
-
     $('loading').style.display = 'none';
     $('content').style.display = 'block';
-
-    // 내 정보
     const me = students.find(s => s.sid === mySid);
     if (me) {
       $('myName').textContent = me.name + ' · ' + seatLabel(me.seat || '');
       $('myAvatar').textContent = [...me.name][0];
       $('myToday').textContent = fmtDuration(todaySec[mySid] || 0);
-      $('myTotal').textContent = fmtDuration(me.totalSec || 0);
-      // 누적 순위
-      const sorted = [...students].sort((a,b) => (b.totalSec||0) - (a.totalSec||0));
-      const rk = sorted.findIndex(s => s.sid === mySid) + 1;
-      $('myRank').innerHTML = rk + '<small>위</small>';
+      $('myTotal').textContent = fmtDuration(me.totalSec);
+      const sorted = [...students].sort((a,b) => b.totalSec - a.totalSec);
+      $('myRank').innerHTML = (sorted.findIndex(s => s.sid === mySid) + 1) + '<small>위</small>';
       $('myRankSub').textContent = '전체 ' + students.length + '명 중';
     } else {
       $('myName').textContent = '—';
+      ['myToday','myTotal','myRank','myRankSub'].forEach(id => $(id).textContent = '—');
     }
-
     renderList();
-  }
+  });
 
   function setTab(t) {
     curTab = t;

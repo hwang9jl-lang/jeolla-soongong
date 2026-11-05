@@ -201,7 +201,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script>
+<script type="application/x-soongong">
   const $ = (id) => document.getElementById(id);
   let applyOpen = false;
 
@@ -233,7 +233,7 @@
   });
 
   // 신청 제출
-  $('submitBtn').addEventListener('click', submitApply);
+  $('submitBtn').addEventListener('click', () => runAppAction(submitApply));
 
   function showMsg(text, type) {
     const m = $('msg');
@@ -263,32 +263,9 @@
         return;
       }
 
-      // 중복 신청 확인 (같은 학번) - 학번을 키로 직접 조회
-      const dupSnap = await db.ref('applications/' + sid).get();
-      if (dupSnap.exists()) {
-        const existing = dupSnap.val();
-        // 이미 신청한 경우: 완료 화면으로
-        showDone(existing.order, sid, name, true);
-        return;
-      }
-
-      // 신청 순번 계산 (트랜잭션으로 안전하게)
-      const orderRef = db.ref('meta/applyCount');
-      const result = await orderRef.transaction((cur) => (cur || 0) + 1);
-      const order = result.snapshot.val();
-
-      // 신청 저장
-      const appData = {
-        sid: sid,
-        name: name,
-        cls: classFromStudentId(sid),
-        order: order,
-        appliedAt: firebase.database.ServerValue.TIMESTAMP,
-        status: 'waiting'  // waiting → confirmed / rejected
-      };
-      await db.ref('applications/' + sid).set(appData);
-
-      showDone(order, sid, name, false);
+      const result = await submitApplication(sid, name);
+      const saved = result.application;
+      showDone(saved.order, saved.sid, saved.name, result.already);
 
     } catch (e) {
       console.error(e);
@@ -303,8 +280,8 @@
     $('done').classList.add('show');
     $('doneNum').innerHTML = order + '<small>번</small>';
     const label = classNoFromStudentId(sid);
-    $('doneInfo').innerHTML =
-      (already ? '이미 신청하셨습니다.<br>' : '') +
+    $('doneInfo').textContent =
+      (already ? '이미 신청하셨습니다. ' : '') +
       name + ' · 2학년 ' + label;
   }
 </script>
